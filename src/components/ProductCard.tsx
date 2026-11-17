@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Product } from '@/types';
 import { useStore } from '@/context/StoreContext';
 import { formatCurrency } from '@/lib/utils';
-import { Plus, Check, Clock } from 'lucide-react';
+import { Plus, Check, Clock, Sparkles } from 'lucide-react';
 
 export default function ProductCard({ product }: { product: Product }) {
   const { addToCart, openCustomizer } = useStore();
@@ -27,29 +27,30 @@ export default function ProductCard({ product }: { product: Product }) {
   };
 
   return (
-    <div className="group bg-white rounded-2xl overflow-hidden border border-[#E8D5C4] shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between">
+    <div className="group bg-white rounded-3xl overflow-hidden border border-[#E8D5C4]/70 shadow-xs hover:shadow-xl hover:border-[#D5BFA8] transition-all duration-500 flex flex-col justify-between hover:-translate-y-1">
       {/* Product Image */}
       <div className="relative aspect-4/3 w-full overflow-hidden bg-[#F7F2EC]">
         <img
           src={product.imageUrl}
           alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+          className="w-full h-full object-cover group-hover:scale-106 transition-transform duration-700 ease-out"
           loading="lazy"
         />
 
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-          {product.highlightBadge && (
-            <span className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-white/95 text-[#3D1F0D] border border-[#E8D5C4] shadow-2xs">
+        {/* Floating Glass Badges */}
+        <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between gap-1.5 pointer-events-none">
+          {product.highlightBadge ? (
+            <span className="px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-white/90 backdrop-blur-md text-[#2E1609] border border-[#E8D5C4]/60 shadow-2xs">
               {product.highlightBadge}
             </span>
-          )}
+          ) : <div />}
+
           {product.isCustomOrder ? (
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#3D1F0D]/90 text-[#FAF7F3]">
-              Sob Encomenda
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-[#2E1609]/85 backdrop-blur-md text-[#FAF7F3]">
+              Personalizável
             </span>
           ) : (
-            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[#7A5A43]/90 text-white">
+            <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide bg-[#6E4F38]/85 backdrop-blur-md text-white">
               Pronta Entrega
             </span>
           )}
@@ -57,46 +58,49 @@ export default function ProductCard({ product }: { product: Product }) {
       </div>
 
       {/* Content */}
-      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-        <div>
-          <h3 className="font-serif text-base font-bold text-[#3D1F0D] group-hover:text-[#C69255] transition-colors line-clamp-1">
+      <div className="p-6 flex-1 flex flex-col justify-between space-y-5">
+        <div className="space-y-2">
+          <h3 className="font-serif text-lg font-bold text-[#2E1609] group-hover:text-[#C69255] transition-colors duration-300 line-clamp-1">
             {product.name}
           </h3>
-          <p className="mt-1.5 text-xs text-[#7A5A43] line-clamp-2 leading-relaxed">
+          <p className="text-xs text-[#7A5A43] line-clamp-2 leading-relaxed font-sans">
             {product.description}
           </p>
 
           {product.prepTimeMinutes && product.isCustomOrder && (
-            <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-[#A68F7B] font-medium">
-              <Clock className="w-3.5 h-3.5 text-[#C69255]" />
-              <span>Antecedência: {product.prepTimeMinutes / 60} horas</span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#FAF7F3] border border-[#E8D5C4]/60 text-[11px] text-[#8C6D53] font-medium">
+              <Clock className="w-3 h-3 text-[#C69255]" />
+              <span>Antecedência: {product.prepTimeMinutes / 60}h</span>
             </div>
           )}
         </div>
 
         {/* Price & Action */}
-        <div className="pt-4 border-t border-[#F2E8DF] flex items-center justify-between">
+        <div className="pt-4 border-t border-[#F5EBE1] flex items-center justify-between">
           <div>
-            <span className="text-[10px] text-[#A68F7B] block font-medium uppercase tracking-wider">
+            <span className="text-[10px] text-[#A68F7B] block font-medium uppercase tracking-widest">
               {product.isCustomOrder ? 'A partir de' : 'Valor'}
             </span>
-            <span className="text-base font-bold text-[#3D1F0D] font-sans">
+            <span className="text-lg font-bold text-[#2E1609] font-sans">
               {formatCurrency(product.price)}
             </span>
           </div>
 
           <button
             onClick={handleAdd}
-            className={`px-4 py-2 rounded-xl font-medium text-xs flex items-center gap-1.5 transition-all active:scale-95 shadow-2xs ${
+            className={`px-5 py-2.5 rounded-xl font-medium text-xs tracking-wide flex items-center gap-2 transition-all duration-300 active:scale-95 shadow-xs cursor-pointer ${
               product.isCustomOrder
-                ? 'bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3]'
+                ? 'bg-[#2E1609] hover:bg-[#1F0E05] text-[#FAF7F3] hover:shadow-md'
                 : justAdded
                 ? 'bg-[#5C3317] text-white'
-                : 'bg-[#F7F2EC] hover:bg-[#EFE4D8] text-[#3D1F0D] border border-[#D5BFA8]'
+                : 'bg-[#FAF7F3] hover:bg-[#EFE4D8] text-[#2E1609] border border-[#D5BFA8]'
             }`}
           >
             {product.isCustomOrder ? (
-              <span>Personalizar</span>
+              <>
+                <Sparkles className="w-3.5 h-3.5 text-[#C69255]" />
+                <span>Personalizar</span>
+              </>
             ) : justAdded ? (
               <>
                 <Check className="w-3.5 h-3.5" />

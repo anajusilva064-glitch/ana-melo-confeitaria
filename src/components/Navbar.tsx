@@ -2,9 +2,8 @@
 
 import React from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useStore } from '@/context/StoreContext';
-import { ShoppingBag, Phone } from 'lucide-react';
+import { ShoppingBag, ArrowUpRight } from 'lucide-react';
 import { InstagramIcon } from '@/components/InstagramIcon';
 
 export default function Navbar() {
@@ -12,16 +11,11 @@ export default function Navbar() {
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
 
   return (
-    <header className="sticky top-0 z-40 bg-[#FAF7F3]/95 backdrop-blur-md border-b border-[#E8D5C4]/60">
-      {/* Top Notice Bar */}
-      <div className="bg-[#3D1F0D] text-[#EFE4D8] text-[11px] py-1.5 px-4 text-center font-medium tracking-wide">
-        <span>Produção sob encomenda com retirada no ateliê em Maringá • Pedidos antecipados</span>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-22 flex items-center justify-between">
+    <header className="sticky top-0 z-40 w-full px-3 sm:px-6 pt-3 pb-2">
+      <div className="max-w-7xl mx-auto rounded-2xl glass-panel shadow-sm px-4 sm:px-6 h-20 flex items-center justify-between transition-all">
         {/* Brand Logo & Name */}
         <Link href="/" className="flex items-center gap-3.5 group">
-          <div className="w-13 h-13 rounded-full overflow-hidden border border-[#D5BFA8] shadow-2xs group-hover:scale-102 transition-transform bg-[#F7F2EC]">
+          <div className="relative w-12 h-12 rounded-full overflow-hidden border border-[#D5BFA8]/80 shadow-xs group-hover:scale-105 transition-all duration-300 bg-white">
             <img
               src="/logo.jpg"
               alt="Ana Melo Confeitaria"
@@ -29,48 +23,58 @@ export default function Navbar() {
             />
           </div>
           <div>
-            <span className="font-serif text-xl sm:text-2xl font-bold tracking-tight text-[#3D1F0D] block leading-none">
+            <span className="font-serif text-lg sm:text-xl font-bold tracking-tight text-[#2E1609] block leading-none group-hover:text-[#C69255] transition-colors">
               {settings.storeName}
             </span>
-            <span className="text-[10px] sm:text-xs text-[#7A5A43] tracking-[0.18em] uppercase font-medium mt-1 block">
+            <span className="text-[9px] sm:text-[10px] text-[#8C6D53] tracking-[0.2em] uppercase font-semibold mt-1 block">
               Confeitaria Artesanal
             </span>
           </div>
         </Link>
 
-        {/* Center Navigation Links */}
-        <nav className="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-wider text-[#5A3821]">
-          <Link href="#cardapio" className="hover:text-[#3D1F0D] transition-colors">
-            Cardápio
+        {/* Center Nav Links */}
+        <nav className="hidden md:flex items-center gap-8 text-[11px] font-semibold uppercase tracking-widest text-[#6E4F38]">
+          <Link
+            href="#encomendas"
+            className="hover:text-[#2E1609] transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-[#C69255] hover:after:w-full after:transition-all"
+          >
+            Doces de Festa
           </Link>
-          <Link href="#encomendas" className="hover:text-[#3D1F0D] transition-colors">
-            Encomendas Personalizadas
+          <Link
+            href="#cardapio"
+            className="hover:text-[#2E1609] transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-[#C69255] hover:after:w-full after:transition-all"
+          >
+            Cardápio Completo
           </Link>
-          <Link href="#sobre" className="hover:text-[#3D1F0D] transition-colors">
-            O Ateliê
+          <Link
+            href="#sobre"
+            className="hover:text-[#2E1609] transition-colors relative py-1 after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-[#C69255] hover:after:w-full after:transition-all"
+          >
+            Retirada no Ateliê
           </Link>
           <a
             href={settings.instagramUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-[#7A5A43] hover:text-[#3D1F0D] transition-colors"
+            className="flex items-center gap-1.5 text-[#8C6D53] hover:text-[#2E1609] transition-colors"
           >
-            <InstagramIcon className="w-3.5 h-3.5" />
+            <InstagramIcon className="w-3.5 h-3.5 text-[#C69255]" />
             <span>Instagram</span>
+            <ArrowUpRight className="w-3 h-3 opacity-60" />
           </a>
         </nav>
 
-        {/* Right Actions */}
+        {/* Right Action: Cart */}
         <div className="flex items-center gap-3">
-          {/* Cart Button */}
           <button
             onClick={() => setIsCartOpen(true)}
-            className="relative flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] font-medium text-xs tracking-wide shadow-sm hover:shadow transition-all active:scale-95"
+            className="relative flex items-center gap-2.5 px-4 sm:px-5 py-2.5 rounded-xl bg-[#2E1609] hover:bg-[#1F0E05] text-[#FAF7F3] font-medium text-xs tracking-wide shadow-sm hover:shadow-md transition-all duration-300 active:scale-95 cursor-pointer"
           >
-            <ShoppingBag className="w-4 h-4" />
-            <span>Sacola</span>
+            <ShoppingBag className="w-4 h-4 text-[#C69255]" />
+            <span className="hidden sm:inline">Minha Sacola</span>
+            <span className="sm:hidden">Sacola</span>
             {totalItems > 0 && (
-              <span className="ml-1 w-5 h-5 rounded-full bg-[#C69255] text-white text-[11px] font-bold flex items-center justify-center">
+              <span className="w-5 h-5 rounded-full bg-[#C69255] text-white text-[10px] font-bold flex items-center justify-center animate-in zoom-in">
                 {totalItems}
               </span>
             )}

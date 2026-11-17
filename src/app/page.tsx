@@ -9,12 +9,13 @@ import CustomOrderModal from '@/components/CustomOrderModal';
 import { useStore } from '@/context/StoreContext';
 import {
   Cake,
-  Clock,
   ArrowRight,
   MapPin,
-  CheckCircle2,
-  Calendar,
   Sparkles,
+  Phone,
+  CheckCircle,
+  Heart,
+  ChevronRight,
 } from 'lucide-react';
 import { InstagramIcon } from '@/components/InstagramIcon';
 
@@ -32,26 +33,30 @@ export default function Home() {
   const cakeProduct = products.find((p) => p.productType === 'cake' && p.isCustomOrder);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FAF7F3] text-[#3D1F0D]">
+    <div className="min-h-screen flex flex-col bg-[#FAF7F3] text-[#2E1609] selection:bg-[#C69255] selection:text-white">
       <Navbar />
 
       <main className="flex-1">
         {/* HERO SECTION */}
-        <section className="relative overflow-hidden py-16 sm:py-24 border-b border-[#E8D5C4]/70 bg-gradient-to-b from-[#F7F2EC] to-[#FAF7F3]">
+        <section className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28">
+          {/* Subtle warm glow blobs */}
+          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-[#EFE4D8]/60 to-[#F5EBE1]/40 rounded-full blur-3xl -z-10 pointer-events-none" />
+
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-              {/* Text */}
-              <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EFE4D8] border border-[#D5BFA8] text-[#5A3821] text-xs font-medium tracking-wide">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+              {/* Left Content */}
+              <div className="lg:col-span-7 space-y-7 text-center lg:text-left">
+                <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/90 border border-[#D5BFA8]/80 text-[#6E4F38] text-xs font-semibold tracking-wide shadow-2xs backdrop-blur-md">
+                  <span className="w-2 h-2 rounded-full bg-[#C69255] animate-pulse" />
                   <span>Confeitaria Artesanal • Maringá - PR</span>
                 </div>
 
-                <h1 className="font-serif text-3xl sm:text-5xl lg:text-6xl font-bold text-[#3D1F0D] tracking-tight leading-[1.15]">
-                  Doces gourmet de festa e bolos feitos sob encomenda.
+                <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-bold text-[#2E1609] tracking-tight leading-[1.12]">
+                  Doces de festa e bolos feitos para encantar.
                 </h1>
 
-                <p className="text-sm sm:text-base text-[#6B4B35] max-w-xl mx-auto lg:mx-0 leading-relaxed font-sans">
-                  Especialistas em doces gourmet finos para eventos, clássicos tradicionais de aniversário e bolos comemorativos. Produção 100% artesanal com retirada agendada no ateliê.
+                <p className="text-base sm:text-lg text-[#7A5A43] max-w-xl mx-auto lg:mx-0 leading-relaxed font-sans font-normal">
+                  Especialistas em doces gourmet finos para eventos, centos tradicionais de aniversário e bolos comemorativos. Produção artesanal sob encomenda com retirada no ateliê.
                 </p>
 
                 {/* CTAs */}
@@ -59,62 +64,74 @@ export default function Home() {
                   {sweetsProduct && (
                     <button
                       onClick={() => openCustomizer(sweetsProduct)}
-                      className="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] font-medium text-xs sm:text-sm tracking-wide shadow-sm transition-all hover:scale-102 active:scale-98 flex items-center justify-center gap-2"
+                      className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-[#2E1609] hover:bg-[#1A0B03] text-[#FAF7F3] font-medium text-xs sm:text-sm tracking-wide shadow-lg shadow-[#2E1609]/15 transition-all duration-300 hover:scale-102 active:scale-98 flex items-center justify-center gap-2.5 cursor-pointer"
                     >
                       <Sparkles className="w-4 h-4 text-[#C69255]" />
                       <span>Montar Cento de Doces</span>
                     </button>
                   )}
 
-                  <a
-                    href="#cardapio"
-                    className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white hover:bg-[#F7F2EC] border border-[#D5BFA8] text-[#3D1F0D] font-medium text-xs sm:text-sm transition-all flex items-center justify-center gap-2"
-                  >
-                    <span>Ver Cardápio Completo</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </a>
+                  {cakeProduct && (
+                    <button
+                      onClick={() => openCustomizer(cakeProduct)}
+                      className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-white hover:bg-[#FAF7F3] border border-[#D5BFA8] text-[#2E1609] font-medium text-xs sm:text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-2xs cursor-pointer hover:border-[#C69255]"
+                    >
+                      <Cake className="w-4 h-4 text-[#C69255]" />
+                      <span>Personalizar Bolo</span>
+                    </button>
+                  )}
                 </div>
 
-                {/* Pillars */}
-                <div className="pt-6 grid grid-cols-3 gap-6 border-t border-[#E8D5C4] max-w-md mx-auto lg:mx-0 text-left">
+                {/* Micro trust row */}
+                <div className="pt-8 grid grid-cols-3 gap-6 border-t border-[#E8D5C4]/80 max-w-lg mx-auto lg:mx-0 text-left">
                   <div>
-                    <span className="block font-serif text-base sm:text-lg font-bold text-[#3D1F0D]">
+                    <span className="block font-serif text-lg sm:text-xl font-bold text-[#2E1609]">
                       Doces de Festa
                     </span>
-                    <span className="text-[11px] text-[#7A5A43]">Gourmet e tradicionais</span>
+                    <span className="text-[11px] text-[#8C6D53]">Gourmet e tradicionais</span>
                   </div>
                   <div>
-                    <span className="block font-serif text-base sm:text-lg font-bold text-[#3D1F0D]">
-                      Bolos sob Medida
+                    <span className="block font-serif text-lg sm:text-xl font-bold text-[#2E1609]">
+                      Sob Medida
                     </span>
-                    <span className="text-[11px] text-[#7A5A43]">Massa e recheio duplo</span>
+                    <span className="text-[11px] text-[#8C6D53]">Montagem em lotes</span>
                   </div>
                   <div>
-                    <span className="block font-serif text-base sm:text-lg font-bold text-[#3D1F0D]">
-                      Retirada no Ateliê
+                    <span className="block font-serif text-lg sm:text-xl font-bold text-[#2E1609]">
+                      No Ateliê
                     </span>
-                    <span className="text-[11px] text-[#7A5A43]">{settings.address}</span>
+                    <span className="text-[11px] text-[#8C6D53]">Retirada agendada</span>
                   </div>
                 </div>
               </div>
 
-              {/* Logo Showcase */}
+              {/* Right Showcase Card */}
               <div className="lg:col-span-5 relative">
                 <div className="relative mx-auto max-w-sm sm:max-w-md">
-                  <div className="relative rounded-3xl overflow-hidden border border-[#D5BFA8] shadow-lg bg-white p-6 flex flex-col items-center text-center space-y-4">
-                    <div className="w-44 h-44 rounded-full overflow-hidden border-2 border-[#E8D5C4] shadow-xs">
-                      <img
-                        src="/logo.jpg"
-                        alt="Ana Melo Confeitaria"
-                        className="w-full h-full object-cover"
-                      />
+                  {/* Decorative glowing card */}
+                  <div className="relative rounded-3xl overflow-hidden border border-[#D5BFA8]/80 shadow-2xl bg-white p-7 flex flex-col items-center text-center space-y-6">
+                    <div className="relative">
+                      <div className="w-44 h-44 rounded-full overflow-hidden border-2 border-[#E8D5C4] shadow-md bg-[#FAF7F3]">
+                        <img
+                          src="/logo.jpg"
+                          alt="Ana Melo Confeitaria"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className="absolute bottom-1 right-1 px-3 py-1 rounded-full bg-[#2E1609] text-[#FAF7F3] text-[10px] font-bold tracking-wider uppercase shadow-xs">
+                        Ateliê
+                      </span>
                     </div>
-                    <div>
-                      <h3 className="font-serif text-xl font-bold text-[#3D1F0D]">
+
+                    <div className="space-y-1.5">
+                      <h2 className="font-serif text-2xl font-bold text-[#2E1609]">
                         {settings.storeName}
-                      </h3>
-                      <p className="text-xs text-[#7A5A43] mt-1">
-                        {settings.address} • {settings.whatsapp}
+                      </h2>
+                      <p className="text-xs text-[#7A5A43] font-medium">
+                        {settings.address}
+                      </p>
+                      <p className="text-xs font-semibold text-[#C69255]">
+                        WhatsApp: {settings.whatsapp}
                       </p>
                     </div>
 
@@ -122,10 +139,10 @@ export default function Home() {
                       href={settings.instagramUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#FAF7F3] border border-[#D5BFA8] text-xs font-semibold text-[#5A3821] hover:bg-[#EFE4D8] transition-colors"
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl bg-[#FAF7F3] border border-[#D5BFA8] text-xs font-semibold text-[#2E1609] hover:bg-[#EFE4D8] transition-all hover:scale-101"
                     >
-                      <InstagramIcon className="w-3.5 h-3.5 text-[#C69255]" />
-                      <span>{settings.instagram}</span>
+                      <InstagramIcon className="w-4 h-4 text-[#C69255]" />
+                      <span>Seguir {settings.instagram}</span>
                     </a>
                   </div>
                 </div>
@@ -134,52 +151,56 @@ export default function Home() {
           </div>
         </section>
 
-        {/* SWEETS & CAKES HIGHLIGHT BANNER */}
-        <section id="encomendas" className="py-12 bg-white border-b border-[#E8D5C4]/70">
+        {/* TWO-COLUMN EXPERIENCE PROMO */}
+        <section id="encomendas" className="py-14 bg-white border-y border-[#E8D5C4]/70">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Card Doces de Festa */}
-              <div className="p-8 rounded-2xl bg-[#3D1F0D] text-[#FAF7F3] flex flex-col justify-between space-y-4">
-                <div className="space-y-2">
-                  <span className="text-[11px] uppercase tracking-widest font-semibold text-[#C69255]">
-                    Doces para Eventos e Aniversários
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Card 1: Doces de Festa */}
+              <div className="p-8 sm:p-10 rounded-3xl bg-gradient-to-br from-[#2E1609] to-[#1F0E05] text-[#FAF7F3] flex flex-col justify-between space-y-6 shadow-xl relative overflow-hidden group">
+                <div className="space-y-3 relative z-10">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-[#C69255] px-3 py-1 rounded-full bg-white/10 inline-block">
+                    O Carro-Chefe do Ateliê
                   </span>
-                  <h3 className="font-serif text-2xl font-bold text-white">
+                  <h3 className="font-serif text-3xl font-bold text-white tracking-tight">
                     Centos e Caixas de Doces de Festa
                   </h3>
-                  <p className="text-[#D8C4B2] text-xs sm:text-sm leading-relaxed">
-                    Escolha entre nossa Linha Gourmet (Belga, Pistache, Ninho com Nutella) e Linha Tradicional (Brigadeiro, Beijinho, Bicho de Pé, Cajuzinho). Monte com 25 unidades de cada sabor.
+                  <p className="text-[#D8C4B2] text-xs sm:text-sm leading-relaxed max-w-md font-sans">
+                    Monte sua mesa de doces com opções da Linha Gourmet (Belga 54%, Pistache com crocante, Ninho com Nutella) e Linha Tradicional (Brigadeiro, Beijinho, Bicho de pé, Dois amores e Cajuzinho).
                   </p>
                 </div>
+
                 {sweetsProduct && (
                   <button
                     onClick={() => openCustomizer(sweetsProduct)}
-                    className="self-start px-6 py-3 rounded-xl bg-[#C69255] hover:bg-[#B8803F] text-white font-medium text-xs sm:text-sm transition-all"
+                    className="self-start px-7 py-3.5 rounded-xl bg-[#C69255] hover:bg-[#B8803F] text-white font-semibold text-xs tracking-wide shadow-md transition-all active:scale-95 cursor-pointer relative z-10 flex items-center gap-2"
                   >
-                    Montar Encomenda de Doces
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Montar Encomenda de Doces</span>
                   </button>
                 )}
               </div>
 
-              {/* Card Bolos */}
-              <div className="p-8 rounded-2xl bg-[#F7F2EC] border border-[#D5BFA8] flex flex-col justify-between space-y-4">
-                <div className="space-y-2">
-                  <span className="text-[11px] uppercase tracking-widest font-semibold text-[#7A5A43]">
-                    Bolos Decorados
+              {/* Card 2: Bolos */}
+              <div className="p-8 sm:p-10 rounded-3xl bg-[#FAF7F3] border border-[#D5BFA8] flex flex-col justify-between space-y-6 shadow-sm group">
+                <div className="space-y-3">
+                  <span className="text-[10px] uppercase tracking-widest font-bold text-[#8C6D53] px-3 py-1 rounded-full bg-white inline-block border border-[#E8D5C4]">
+                    Produção Artesanal
                   </span>
-                  <h3 className="font-serif text-2xl font-bold text-[#3D1F0D]">
-                    Bolos Festivos Personalizados
+                  <h3 className="font-serif text-3xl font-bold text-[#2E1609] tracking-tight">
+                    Bolos Comemorativos Personalizados
                   </h3>
-                  <p className="text-[#6B4B35] text-xs sm:text-sm leading-relaxed">
-                    Aros 15, 20 ou 25 com massa amanteigada ou de chocolate nobre, combinação de até dois recheios cremosos e topo personalizado.
+                  <p className="text-[#6E4F38] text-xs sm:text-sm leading-relaxed max-w-md font-sans">
+                    Aros 15, 20 ou 25 com massa fofinha amanteigada ou cacau 100%, recheio duplo artesanal e finalização espatulada ao seu gosto.
                   </p>
                 </div>
+
                 {cakeProduct && (
                   <button
                     onClick={() => openCustomizer(cakeProduct)}
-                    className="self-start px-6 py-3 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] text-white font-medium text-xs sm:text-sm transition-all"
+                    className="self-start px-7 py-3.5 rounded-xl bg-[#2E1609] hover:bg-[#1A0B03] text-white font-semibold text-xs tracking-wide shadow-sm transition-all active:scale-95 cursor-pointer flex items-center gap-2"
                   >
-                    Personalizar Bolo
+                    <Cake className="w-3.5 h-3.5 text-[#C69255]" />
+                    <span>Personalizar Bolo</span>
                   </button>
                 )}
               </div>
@@ -188,25 +209,28 @@ export default function Home() {
         </section>
 
         {/* MENU / PRODUCTS SECTION */}
-        <section id="cardapio" className="py-16 sm:py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-            <div className="text-center max-w-xl mx-auto space-y-2">
-              <span className="text-[11px] font-semibold text-[#C69255] uppercase tracking-widest">
-                Cardápio do Ateliê
+        <section id="cardapio" className="py-20 sm:py-28">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            <div className="text-center max-w-xl mx-auto space-y-3">
+              <span className="text-[11px] font-bold text-[#C69255] uppercase tracking-[0.2em]">
+                Cardápio Oficial
               </span>
-              <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#3D1F0D]">
-                Doces de Festa, Bolos e Sobremesas
+              <h2 className="font-serif text-3xl sm:text-4xl font-bold text-[#2E1609]">
+                Doces, Bolos e Sobremesas
               </h2>
+              <p className="text-xs sm:text-sm text-[#7A5A43]">
+                Selecione uma categoria abaixo para explorar todas as produções disponíveis para encomenda.
+              </p>
             </div>
 
-            {/* Filter Pills */}
-            <div className="flex items-center justify-center gap-2 overflow-x-auto pb-2">
+            {/* Category Filter Pills */}
+            <div className="flex items-center justify-center gap-2 overflow-x-auto pb-2 scrollbar-none">
               <button
                 onClick={() => setActiveCategoryId('all')}
-                className={`px-4 py-2 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
+                className={`px-5 py-2.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                   activeCategoryId === 'all'
-                    ? 'bg-[#3D1F0D] text-[#FAF7F3]'
-                    : 'bg-white hover:bg-[#F7F2EC] text-[#5A3821] border border-[#D5BFA8]'
+                    ? 'bg-[#2E1609] text-[#FAF7F3] shadow-sm'
+                    : 'bg-white hover:bg-[#FAF7F3] text-[#6E4F38] border border-[#D5BFA8]'
                 }`}
               >
                 Todos ({products.filter((p) => p.isAvailable).length})
@@ -220,21 +244,21 @@ export default function Home() {
                   <button
                     key={cat.id}
                     onClick={() => setActiveCategoryId(cat.id)}
-                    className={`px-4 py-2 rounded-full text-xs font-semibold transition-all whitespace-nowrap ${
+                    className={`px-5 py-2.5 rounded-full text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                       isActive
-                        ? 'bg-[#3D1F0D] text-[#FAF7F3]'
-                        : 'bg-white hover:bg-[#F7F2EC] text-[#5A3821] border border-[#D5BFA8]'
+                        ? 'bg-[#2E1609] text-[#FAF7F3] shadow-sm'
+                        : 'bg-white hover:bg-[#FAF7F3] text-[#6E4F38] border border-[#D5BFA8]'
                     }`}
                   >
                     <span>{cat.name}</span>
-                    <span className="ml-1 text-[10px] opacity-75">({count})</span>
+                    <span className="ml-1.5 text-[10px] opacity-75">({count})</span>
                   </button>
                 );
               })}
             </div>
 
             {/* Products Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-7">
               {filteredProducts.map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
@@ -242,38 +266,52 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ATELIÊ & RETIRADA INFO */}
-        <section id="sobre" className="py-16 bg-[#F7F2EC] border-t border-[#E8D5C4]/70">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-            <span className="text-[11px] font-semibold text-[#C69255] uppercase tracking-widest">
-              Informações do Ateliê
-            </span>
-            <h2 className="font-serif text-2xl sm:text-3xl font-bold text-[#3D1F0D]">
-              Retirada no Ateliê Ana Melo
-            </h2>
-            <p className="text-xs sm:text-sm text-[#6B4B35] leading-relaxed max-w-2xl mx-auto">
-              Endereço: <strong>{settings.address}</strong>. Todas as produções de doces e bolos são realizadas sob encomenda para manter o mais alto padrão de qualidade e sabor.
-            </p>
+        {/* HOW TO ORDER / EXPERIENCE STEPS */}
+        <section id="sobre" className="py-20 bg-white border-t border-[#E8D5C4]/70">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+            <div className="text-center max-w-xl mx-auto space-y-3">
+              <span className="text-[11px] font-bold text-[#C69255] uppercase tracking-[0.2em]">
+                Simples e Direto
+              </span>
+              <h2 className="font-serif text-3xl font-bold text-[#2E1609]">
+                Como encomendar no ateliê
+              </h2>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 text-left">
-              <div className="p-5 rounded-xl bg-white border border-[#E8D5C4] space-y-2">
-                <span className="text-xs font-bold text-[#3D1F0D] block">1. Monte seus Sabores</span>
-                <p className="text-[11px] text-[#7A5A43] leading-relaxed">
-                  Selecione a quantidade de doces (25, 50 ou 100) e marque os sabores desejados da linha gourmet ou tradicional.
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="p-7 rounded-3xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3 relative">
+                <span className="w-8 h-8 rounded-full bg-[#2E1609] text-white text-xs font-bold flex items-center justify-center">
+                  1
+                </span>
+                <h4 className="font-serif text-base font-bold text-[#2E1609]">
+                  Monte seus Sabores
+                </h4>
+                <p className="text-xs text-[#7A5A43] leading-relaxed">
+                  Escolha o pacote de doces (25, 50 ou 100 unidades) ou monte seu bolo comemorativo passo a passo.
                 </p>
               </div>
 
-              <div className="p-5 rounded-xl bg-white border border-[#E8D5C4] space-y-2">
-                <span className="text-xs font-bold text-[#3D1F0D] block">2. Envio no WhatsApp</span>
-                <p className="text-[11px] text-[#7A5A43] leading-relaxed">
-                  O pedido é enviado diretamente para o WhatsApp {settings.whatsapp} com os dados da encomenda e instruções de Pix.
+              <div className="p-7 rounded-3xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3 relative">
+                <span className="w-8 h-8 rounded-full bg-[#2E1609] text-white text-xs font-bold flex items-center justify-center">
+                  2
+                </span>
+                <h4 className="font-serif text-base font-bold text-[#2E1609]">
+                  Confirmação no WhatsApp
+                </h4>
+                <p className="text-xs text-[#7A5A43] leading-relaxed">
+                  O pedido é enviado estruturado para o número (44) 99973-9472 para confirmação de horário e pagamento Pix.
                 </p>
               </div>
 
-              <div className="p-5 rounded-xl bg-white border border-[#E8D5C4] space-y-2">
-                <span className="text-xs font-bold text-[#3D1F0D] block">3. Retirada Agendada</span>
-                <p className="text-[11px] text-[#7A5A43] leading-relaxed">
-                  No dia marcado, sua encomenda estará fresca e embalada para o seu evento.
+              <div className="p-7 rounded-3xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3 relative">
+                <span className="w-8 h-8 rounded-full bg-[#2E1609] text-white text-xs font-bold flex items-center justify-center">
+                  3
+                </span>
+                <h4 className="font-serif text-base font-bold text-[#2E1609]">
+                  Retirada no Ateliê
+                </h4>
+                <p className="text-xs text-[#7A5A43] leading-relaxed">
+                  No dia marcado, sua encomenda estará fresca e embalada na Rua Marcio Bacaraim Possebom 2082.
                 </p>
               </div>
             </div>
