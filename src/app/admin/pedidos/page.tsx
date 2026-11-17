@@ -1,26 +1,25 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useStore } from '@/context/StoreContext';
 import { Order, OrderStatus } from '@/types';
-import { formatCurrency, formatDateTime, createWhatsAppLink } from '@/lib/utils';
+import { formatCurrency, formatDateTime } from '@/lib/utils';
 import {
-  Clock,
   Printer,
-  MessageCircle,
   ChevronRight,
   ChevronLeft,
-  CheckCircle2,
-  MapPin,
   Calendar,
   X,
-  Bell,
-  Sparkles,
+  Send,
+  Check,
+  ArrowRight,
 } from 'lucide-react';
+import { sendAutomaticWhatsAppNotification } from '@/lib/whatsapp';
 
 const columns: { id: OrderStatus; title: string; color: string; badgeColor: string }[] = [
   { id: 'received', title: 'Novos Pedidos', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#C69255] text-white' },
-  { id: 'preparing', title: 'Em Produção', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#7A5A43] text-white' },
+  { id: 'preparing', title: 'Em Preparo / Montagem', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#7A5A43] text-white' },
   { id: 'ready', title: 'Pronto para Retirada', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#3D1F0D] text-white' },
   { id: 'finished', title: 'Concluídos', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#4A2810] text-white' },
 ];
@@ -28,19 +27,25 @@ const columns: { id: OrderStatus; title: string; color: string; badgeColor: stri
 export default function AdminPedidosKanbanPage() {
   const { orders, updateOrderStatus, settings } = useStore();
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<Order | null>(null);
-  const [filterDate, setFilterDate] = useState<'all' | 'today'>('all');
+  const [notificationSuccess, setNotificationSuccess] = useState<string | null>(null);
 
-  const [today, setToday] = useState('2026-11-17');
-  React.useEffect(() => {
-    setToday(new Date().toISOString().split('T')[0]);
-  }, []);
+  // Pedidos Pronta Entrega
+  const immediateOrders = orders.filter((o) => !o.isPreOrder || !o.items.some((i) => Boolean(i.customDetails)));
 
-  const filteredOrders = orders.filter((o) => {
-    if (filterDate === 'today') {
-      return o.scheduledDate === today || o.createdAt.startsWith(today);
+  const handleNotifyCustomer = async (order: Order) => {
+    const result = await sendAutomaticWhatsAppNotification(
+      order,
+      order.orderStatus,
+      settings.storeName,
+      settings.address,
+      settings.instagram
+    );
+
+    if (result.success) {
+      setNotificationSuccess(order.id);
+      setTimeout(() => setNotificationSuccess(null), 2500);
     }
-    return true;
-  });
+  };
 
   const nextStatusMap: Record<OrderStatus, OrderStatus | null> = {
     received: 'preparing',
@@ -58,69 +63,42 @@ export default function AdminPedidosKanbanPage() {
     cancelled: null,
   };
 
-  const handleNotifyCustomer = (order: Order) => {
-    let msg = `Olá, *${order.customerName}*! Tudo bem?\n\n`;
-    if (order.orderStatus === 'preparing') {
-      msg += `Passando para avisar que sua encomenda *${order.orderNumber}* já está sendo preparada no ateliê da *${settings.storeName}*.`;
-    } else if (order.orderStatus === 'ready') {
-      msg += `Seu pedido *${order.orderNumber}* está pronto te esperando para retirada no ateliê!\nLocal: ${settings.address}`;
-    } else if (order.orderStatus === 'finished') {
-      msg += `Agradecemos a confiança com a *${settings.storeName}*! Esperamos que aprecie cada detalhe. Se puder, nos marque no Instagram: ${settings.instagram}`;
-    } else {
-      msg += `Confirmamos o recebimento do seu pedido *${order.orderNumber}* no valor de ${formatCurrency(order.totalAmount)}. Em breve iniciaremos a produção.`;
-    }
-
-    const link = createWhatsAppLink(order.customerPhone, msg);
-    window.open(link, '_blank');
-  };
-
   return (
     <div className="space-y-6">
       {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900">
-            Kanban de Pedidos & Cozinha
+          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#3D1F0D]">
+            Kanban de Pedidos (Pronta Entrega)
           </h1>
-          <p className="text-xs sm:text-sm text-stone-500 mt-1">
-            Arraste os pedidos mentalmente ou avance os status com 1 clique para manter o ateliê organizado.
+          <p className="text-xs sm:text-sm text-[#7A5A43] mt-1">
+            Fila operacional para pedidos de consumo rápido e fatias prontas do ateliê.
           </p>
         </div>
 
-        {/* Filter Toggle */}
-        <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-stone-200">
-          <button
-            onClick={() => setFilterDate('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              filterDate === 'all' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            Todos os Pedidos ({orders.length})
-          </button>
-          <button
-            onClick={() => setFilterDate('today')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-              filterDate === 'today' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            Apenas Hoje
-          </button>
-        </div>
+        <Link
+          href="/admin/encomendas-agenda"
+          className="px-4 py-2.5 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-xs transition-colors self-start sm:self-auto"
+        >
+          <Calendar className="w-4 h-4 text-[#C69255]" />
+          <span>Ver Agenda de Encomendas Programadas</span>
+          <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
 
-      {/* Kanban Board (4 Columns) */}
+      {/* Kanban Board */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
         {columns.map((col) => {
-          const colOrders = filteredOrders.filter((o) => o.orderStatus === col.id);
+          const colOrders = immediateOrders.filter((o) => o.orderStatus === col.id);
 
           return (
             <div
               key={col.id}
-              className={`rounded-2xl border-2 p-3 space-y-3 min-h-[480px] flex flex-col ${col.color}`}
+              className={`rounded-2xl border p-3 space-y-3 min-h-[480px] flex flex-col ${col.color}`}
             >
               {/* Column Header */}
               <div className="flex items-center justify-between px-1">
-                <h3 className="font-serif text-xs sm:text-sm font-bold text-stone-900">
+                <h3 className="font-serif text-xs sm:text-sm font-bold text-[#3D1F0D]">
                   {col.title}
                 </h3>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${col.badgeColor}`}>
@@ -128,96 +106,64 @@ export default function AdminPedidosKanbanPage() {
                 </span>
               </div>
 
-              {/* Order Cards */}
+              {/* Cards */}
               <div className="space-y-3 flex-1">
                 {colOrders.length === 0 ? (
-                  <div className="h-32 flex items-center justify-center text-xs text-stone-400 italic">
+                  <div className="h-32 flex items-center justify-center text-xs text-[#A68F7B] italic">
                     Nenhum pedido aqui
                   </div>
                 ) : (
                   colOrders.map((order) => {
                     const nextStatus = nextStatusMap[order.orderStatus];
                     const prevStatus = prevStatusMap[order.orderStatus];
+                    const justNotified = notificationSuccess === order.id;
 
                     return (
                       <div
                         key={order.id}
-                        className="p-4 rounded-xl bg-white border border-stone-200 shadow-xs hover:shadow-md transition-all space-y-3 text-stone-800"
+                        className="p-4 rounded-xl bg-white border border-[#E8D5C4] shadow-xs hover:shadow-md transition-all space-y-3"
                       >
-                        {/* Order Header */}
                         <div className="flex items-start justify-between">
                           <div>
-                            <span className="font-mono text-xs font-bold text-stone-900">
+                            <span className="font-mono text-xs font-bold text-[#3D1F0D]">
                               {order.orderNumber}
                             </span>
-                            <h4 className="font-serif text-sm font-bold text-stone-900">
+                            <h4 className="font-serif text-sm font-bold text-[#3D1F0D]">
                               {order.customerName}
                             </h4>
                           </div>
-                          <span className="text-xs font-bold text-rose-600 font-sans">
+                          <span className="text-xs font-bold text-[#C69255] font-sans">
                             {formatCurrency(order.totalAmount)}
                           </span>
                         </div>
 
-                        {/* Delivery & Schedule Info */}
-                        <div className="space-y-1 text-[11px] text-stone-600 border-y border-stone-100 py-2">
-                          <div className="flex items-center gap-1.5 font-medium text-stone-700">
-                            <Calendar className="w-3.5 h-3.5 text-rose-500" />
-                            <span>
-                              {order.scheduledDate.split('-').reverse().join('/')} às {order.scheduledTime}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-amber-500" />
-                            <span>
-                              {order.deliveryType === 'delivery'
-                                ? `Entrega (${order.deliveryNeighborhood || 'Delivery'})`
-                                : 'Retirada no Ateliê'}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Items Preview */}
+                        {/* Items */}
                         <div className="space-y-1 text-xs">
                           {order.items.map((item, idx) => (
-                            <div key={idx} className="leading-tight">
-                              <span className="font-semibold text-stone-900">
-                                {item.quantity}x {item.productName}
-                              </span>
-                              {item.customDetails && (
-                                <div className="text-[10px] text-stone-500 pl-2 border-l border-rose-200 mt-0.5 space-y-0.5">
-                                  {item.customDetails.size && <div>Tamanho: {item.customDetails.size}</div>}
-                                  {item.customDetails.dough && <div>Massa: {item.customDetails.dough}</div>}
-                                  {item.customDetails.fillings && (
-                                    <div>Recheio: {item.customDetails.fillings.join(' + ')}</div>
-                                  )}
-                                  {item.customDetails.cakeMessage && (
-                                    <div className="font-semibold text-rose-700">
-                                      Topo: "{item.customDetails.cakeMessage}"
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                            <div key={idx} className="font-medium text-[#5A3821]">
+                              {item.quantity}x {item.productName}
                             </div>
                           ))}
                         </div>
 
-                        {/* Order Actions */}
-                        <div className="pt-2 border-t border-stone-100 flex items-center justify-between gap-1 text-xs">
+                        {/* Actions */}
+                        <div className="pt-2 border-t border-[#F2E8DF] flex items-center justify-between gap-1 text-xs">
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => setSelectedOrderForPrint(order)}
                               title="Imprimir Comanda"
-                              className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors"
+                              className="p-1.5 rounded-lg bg-[#FAF7F3] hover:bg-[#EFE4D8] text-[#3D1F0D]"
                             >
                               <Printer className="w-3.5 h-3.5" />
                             </button>
                             <button
                               onClick={() => handleNotifyCustomer(order)}
-                              title="Avisar no WhatsApp"
-                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
+                              title="Enviar Notificação WhatsApp"
+                              className={`p-1.5 rounded-lg flex items-center gap-1 ${
+                                justNotified ? 'bg-emerald-100 text-emerald-800' : 'bg-[#FAF7F3] text-[#5A3821]'
+                              }`}
                             >
-                              <MessageCircle className="w-3.5 h-3.5" />
+                              {justNotified ? <Check className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
                             </button>
                           </div>
 
@@ -225,8 +171,7 @@ export default function AdminPedidosKanbanPage() {
                             {prevStatus && (
                               <button
                                 onClick={() => updateOrderStatus(order.id, prevStatus)}
-                                title="Voltar status"
-                                className="p-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600"
+                                className="p-1.5 rounded-lg bg-[#FAF7F3] text-[#7A5A43] hover:bg-[#EFE4D8]"
                               >
                                 <ChevronLeft className="w-3.5 h-3.5" />
                               </button>
@@ -234,7 +179,7 @@ export default function AdminPedidosKanbanPage() {
                             {nextStatus && (
                               <button
                                 onClick={() => updateOrderStatus(order.id, nextStatus)}
-                                className="px-2.5 py-1 rounded-lg bg-stone-900 hover:bg-stone-800 text-white text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                                className="px-2.5 py-1 rounded-lg bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] text-[11px] font-semibold flex items-center gap-1"
                               >
                                 <span>Avançar</span>
                                 <ChevronRight className="w-3 h-3" />
@@ -252,17 +197,14 @@ export default function AdminPedidosKanbanPage() {
         })}
       </div>
 
-      {/* Comanda Térmica Modal */}
+      {/* Comanda Modal */}
       {selectedOrderForPrint && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
-          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4 font-mono text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1F1108]/60 backdrop-blur-xs">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 space-y-4 font-mono text-xs border border-[#D5BFA8]">
             <div className="flex items-center justify-between border-b border-stone-200 pb-3">
-              <span className="font-bold text-stone-900">COMANDA DE PRODUÇÃO</span>
-              <button
-                onClick={() => setSelectedOrderForPrint(null)}
-                className="text-stone-400 hover:text-stone-600"
-              >
-                <X className="w-4 h-4" />
+              <span className="font-bold text-[#3D1F0D]">COMANDA DE BALCÃO</span>
+              <button onClick={() => setSelectedOrderForPrint(null)}>
+                <X className="w-4 h-4 text-stone-400" />
               </button>
             </div>
 
@@ -274,37 +216,14 @@ export default function AdminPedidosKanbanPage() {
 
             <div className="border-t border-dashed border-stone-300 pt-2 space-y-1">
               <div><strong>CLIENTE:</strong> {selectedOrderForPrint.customerName}</div>
-              <div><strong>WHATSAPP:</strong> {selectedOrderForPrint.customerPhone}</div>
-              <div>
-                <strong>ENTREGA/RETIRADA:</strong>{' '}
-                {selectedOrderForPrint.scheduledDate.split('-').reverse().join('/')} às{' '}
-                {selectedOrderForPrint.scheduledTime}
-              </div>
-              <div>
-                <strong>TIPO:</strong>{' '}
-                {selectedOrderForPrint.deliveryType === 'delivery'
-                  ? `DELIVERY (${selectedOrderForPrint.deliveryAddress} - ${selectedOrderForPrint.deliveryNeighborhood})`
-                  : 'RETIRADA NO ATELIÊ'}
-              </div>
+              <div><strong>CONTATO:</strong> {selectedOrderForPrint.customerPhone}</div>
             </div>
 
-            <div className="border-t border-dashed border-stone-300 pt-2 space-y-2">
-              <div className="font-bold">ITENS:</div>
+            <div className="border-t border-dashed border-stone-300 pt-2 space-y-1">
               {selectedOrderForPrint.items.map((i, idx) => (
-                <div key={idx} className="space-y-0.5">
-                  <div className="flex justify-between font-semibold">
-                    <span>{i.quantity}x {i.productName}</span>
-                    <span>{formatCurrency(i.totalPrice)}</span>
-                  </div>
-                  {i.customDetails && (
-                    <div className="text-[10px] text-stone-600 pl-2">
-                      {i.customDetails.size && <div>• {i.customDetails.size}</div>}
-                      {i.customDetails.dough && <div>• Massa: {i.customDetails.dough}</div>}
-                      {i.customDetails.fillings && <div>• Recheio: {i.customDetails.fillings.join(' + ')}</div>}
-                      {i.customDetails.topping && <div>• Cobertura: {i.customDetails.topping}</div>}
-                      {i.customDetails.cakeMessage && <div>• FRASE: "{i.customDetails.cakeMessage}"</div>}
-                    </div>
-                  )}
+                <div key={idx} className="flex justify-between">
+                  <span>{i.quantity}x {i.productName}</span>
+                  <span>{formatCurrency(i.totalPrice)}</span>
                 </div>
               ))}
             </div>
@@ -317,10 +236,9 @@ export default function AdminPedidosKanbanPage() {
             <div className="pt-3 flex gap-2">
               <button
                 onClick={() => window.print()}
-                className="flex-1 py-2 rounded-xl bg-stone-900 text-white font-sans text-xs font-semibold flex items-center justify-center gap-1.5"
+                className="flex-1 py-2 rounded-xl bg-[#3D1F0D] text-white font-sans text-xs font-semibold"
               >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Imprimir Agora</span>
+                Imprimir
               </button>
               <button
                 onClick={() => setSelectedOrderForPrint(null)}

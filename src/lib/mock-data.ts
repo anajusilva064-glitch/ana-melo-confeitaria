@@ -24,6 +24,7 @@ export const initialSettings: StoreSettings = {
   minNoticeHoursCustom: 48,
   businessHours: 'Produções sob encomenda com retirada agendada no ateliê em Maringá - PR.',
   isOpen: true,
+  whatsappAutoNotify: true,
 };
 
 export const initialCategories: Category[] = [

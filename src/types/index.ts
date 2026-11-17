@@ -18,22 +18,22 @@ export type Product = {
   imageUrl: string;
   isAvailable: boolean;
   isCustomOrder: boolean;
-  productType?: ProductType; // 'sweets' | 'cake' | 'dessert' | 'gift'
+  productType?: ProductType;
   prepTimeMinutes?: number;
   stock?: number;
   highlightBadge?: string;
 };
 
 export type CustomOptionType =
-  | 'size' // aros de bolo
-  | 'dough' // massas de bolo
-  | 'filling' // recheios de bolo
-  | 'topping' // coberturas de bolo
-  | 'extra' // adicionais gerais
-  | 'sweet_size' // 25, 50, 100 unidades (cento)
-  | 'sweet_traditional' // brigadeiro, beijinho, bicho de pé, cajuzinho, etc.
-  | 'sweet_gourmet' // belga, ninho com nutella, pistache, etc.
-  | 'wrapper'; // forminha 4 pétalas, tecido, etc.
+  | 'size'
+  | 'dough'
+  | 'filling'
+  | 'topping'
+  | 'extra'
+  | 'sweet_size'
+  | 'sweet_traditional'
+  | 'sweet_gourmet'
+  | 'wrapper';
 
 export type CustomOrderOption = {
   id: string;
@@ -73,16 +73,14 @@ export type OrderItem = {
   unitPrice: number;
   totalPrice: number;
   customDetails?: {
-    // Para Bolos
     size?: string;
     dough?: string;
     fillings?: string[];
     topping?: string;
     cakeMessage?: string;
-    // Para Doces de Festa
-    sweetPackageSize?: string; // ex: Cento (100 un), Meio Cento (50 un)
-    selectedFlavors?: string[]; // ex: ['25x Brigadeiro Belga', '25x Ninho com Nutella', ...]
-    wrapperType?: string; // ex: Forminhas 4 pétalas marrom
+    sweetPackageSize?: string;
+    selectedFlavors?: string[];
+    wrapperType?: string;
     extras?: string[];
   };
 };
@@ -92,6 +90,7 @@ export type Order = {
   orderNumber: string;
   customerName: string;
   customerPhone: string;
+  isPreOrder?: boolean; // se é encomenda agendada ou pronta entrega imediata
   deliveryType: DeliveryType;
   deliveryAddress?: string;
   deliveryNeighborhood?: string;
@@ -135,4 +134,10 @@ export type StoreSettings = {
   minNoticeHoursCustom: number;
   businessHours: string;
   isOpen: boolean;
+
+  // Integração com API do WhatsApp (Evolution API / Z-API / Baileys / Twilio)
+  whatsappApiUrl?: string;
+  whatsappApiKey?: string;
+  whatsappInstanceName?: string;
+  whatsappAutoNotify: boolean; // Disparar mensagem automaticamente ao mudar status
 };

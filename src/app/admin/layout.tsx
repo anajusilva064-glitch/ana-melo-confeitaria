@@ -13,6 +13,7 @@ import {
   Calculator,
   DollarSign,
   Settings,
+  Calendar,
   ExternalLink,
   ChevronRight,
   LogOut,
@@ -21,13 +22,14 @@ import {
 
 const navItems = [
   { label: 'Visão Geral', href: '/admin', icon: LayoutDashboard },
-  { label: 'Pedidos e Kanban', href: '/admin/pedidos', icon: ClipboardList, badgeCountKey: 'received' },
+  { label: 'Pedidos Pronta Entrega', href: '/admin/pedidos', icon: ClipboardList, badgeCountKey: 'received' },
+  { label: 'Encomendas e Calendário', href: '/admin/encomendas-agenda', icon: Calendar },
   { label: 'Cardápio e Produtos', href: '/admin/cardapio', icon: UtensilsCrossed },
-  { label: 'Opções de Encomenda', href: '/admin/encomendas', icon: Cake },
+  { label: 'Sabores e Opções', href: '/admin/encomendas', icon: Cake },
   { label: 'Estoque de Insumos', href: '/admin/estoque', icon: Boxes, badgeCountKey: 'lowStock' },
   { label: 'Ficha Técnica e Custos', href: '/admin/ficha-tecnica', icon: Calculator },
   { label: 'Financeiro e Fluxo', href: '/admin/financeiro', icon: DollarSign },
-  { label: 'Configurações', href: '/admin/configuracoes', icon: Settings },
+  { label: 'Configurações & WhatsApp API', href: '/admin/configuracoes', icon: Settings },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -311,6 +311,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...orderData,
       id: `ord-${Date.now()}`,
       orderNumber: `#${nextNumber}`,
+      isPreOrder: orderData.isPreOrder ?? true,
       createdAt: new Date().toISOString(),
     };
 
@@ -328,24 +329,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    // Tocar som de novo pedido se suportado
-    try {
-      if (typeof window !== 'undefined' && 'Audio' in window) {
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        audio.play().catch(() => {});
-      }
-    } catch {}
-
     return newOrder;
   };
 
   const updateOrderStatus = (id: string, status: OrderStatus) => {
+    const targetOrder = orders.find((o) => o.id === id);
+
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id !== id) return o;
         return { ...o, orderStatus: status };
       })
     );
+
+    // Se a automação de WhatsApp estiver ativada, envia notificação automática via API
+    if (targetOrder && settings.whatsappAutoNotify) {
+      import('@/lib/whatsapp').then(({ sendAutomaticWhatsAppNotification }) => {
+        sendAutomaticWhatsAppNotification(
+          targetOrder,
+          status,
+          settings.storeName,
+          settings.address,
+          settings.instagram
+        );
+      });
+    }
   };
 
   const deleteOrder = (id: string) => {
