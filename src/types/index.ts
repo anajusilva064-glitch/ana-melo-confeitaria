@@ -7,6 +7,8 @@ export type Category = {
   isActive: boolean;
 };
 
+export type ProductType = 'cake' | 'sweets' | 'dessert' | 'gift';
+
 export type Product = {
   id: string;
   categoryId: string;
@@ -15,13 +17,23 @@ export type Product = {
   price: number;
   imageUrl: string;
   isAvailable: boolean;
-  isCustomOrder: boolean; // se é produto pronta entrega ou requer encomenda
+  isCustomOrder: boolean;
+  productType?: ProductType; // 'sweets' | 'cake' | 'dessert' | 'gift'
   prepTimeMinutes?: number;
-  stock?: number; // unidades prontas em estoque
-  highlightBadge?: string; // ex: "Mais Vendido", "Novidade", "Gourmet"
+  stock?: number;
+  highlightBadge?: string;
 };
 
-export type CustomOptionType = 'size' | 'dough' | 'filling' | 'topping' | 'extra';
+export type CustomOptionType =
+  | 'size' // aros de bolo
+  | 'dough' // massas de bolo
+  | 'filling' // recheios de bolo
+  | 'topping' // coberturas de bolo
+  | 'extra' // adicionais gerais
+  | 'sweet_size' // 25, 50, 100 unidades (cento)
+  | 'sweet_traditional' // brigadeiro, beijinho, bicho de pé, cajuzinho, etc.
+  | 'sweet_gourmet' // belga, ninho com nutella, pistache, etc.
+  | 'wrapper'; // forminha 4 pétalas, tecido, etc.
 
 export type CustomOrderOption = {
   id: string;
@@ -30,29 +42,23 @@ export type CustomOrderOption = {
   description?: string;
   extraPrice: number;
   isAvailable: boolean;
-  maxSelections?: number; // para recheios: ex: até 2 escolhas
+  maxSelections?: number;
 };
 
 export type Ingredient = {
   id: string;
   name: string;
   unit: 'g' | 'kg' | 'ml' | 'l' | 'un';
-  packageQuantity: number; // ex: 395 (gramas na lata)
-  packageCost: number; // ex: 6.50 (reais pagos)
-  currentStock: number; // estoque em gramas/unidades
+  packageQuantity: number;
+  packageCost: number;
+  currentStock: number;
   minStockAlert: number;
-  costPerUnit: number; // calculado: packageCost / packageQuantity
+  costPerUnit: number;
 };
 
 export type RecipeItem = {
   ingredientId: string;
-  quantityNeeded: number; // quantidade em gramas/ml/unidades
-};
-
-export type ProductRecipe = {
-  productId: string;
-  batchYield: number; // rendimento da receita (ex: rende 40 brigadeiros)
-  items: RecipeItem[];
+  quantityNeeded: number;
 };
 
 export type OrderStatus = 'received' | 'preparing' | 'ready' | 'finished' | 'cancelled';
@@ -67,12 +73,17 @@ export type OrderItem = {
   unitPrice: number;
   totalPrice: number;
   customDetails?: {
+    // Para Bolos
     size?: string;
     dough?: string;
     fillings?: string[];
     topping?: string;
+    cakeMessage?: string;
+    // Para Doces de Festa
+    sweetPackageSize?: string; // ex: Cento (100 un), Meio Cento (50 un)
+    selectedFlavors?: string[]; // ex: ['25x Brigadeiro Belga', '25x Ninho com Nutella', ...]
+    wrapperType?: string; // ex: Forminhas 4 pétalas marrom
     extras?: string[];
-    cakeMessage?: string; // mensagem do topo / velinha
   };
 };
 
@@ -85,8 +96,8 @@ export type Order = {
   deliveryAddress?: string;
   deliveryNeighborhood?: string;
   deliveryFee: number;
-  scheduledDate: string; // YYYY-MM-DD
-  scheduledTime: string; // HH:MM
+  scheduledDate: string;
+  scheduledTime: string;
   items: OrderItem[];
   totalAmount: number;
   paymentMethod: 'pix' | 'cash' | 'card';
@@ -101,7 +112,7 @@ export type TransactionType = 'income' | 'expense';
 export type FinancialTransaction = {
   id: string;
   type: TransactionType;
-  category: string; // ex: "Venda de Pedido", "Insumos", "Embalagens", "Gás/Energia", "Marketing"
+  category: string;
   description: string;
   amount: number;
   date: string;
