@@ -53,7 +53,7 @@ type StoreContextType = {
   addOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => Order;
   updateOrderStatus: (id: string, status: OrderStatus) => void;
   deleteOrder: (id: string) => void;
-  syncPartnerSpreadsheet: () => { success: boolean; count: number; message: string };
+  syncPartnerSpreadsheet: () => Promise<{ success: boolean; count: number; message: string }>;
 
   // Financeiro
   transactions: FinancialTransaction[];
@@ -353,8 +353,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setOrders((prev) => prev.filter((o) => o.id !== id));
   };
 
-  const syncPartnerSpreadsheet = () => {
-    // Sincroniza encomendas da planilha compartilhada do parceiro sem duplicar
+  const syncPartnerSpreadsheet = async (): Promise<{ success: boolean; count: number; message: string }> => {
+    try {
+      const res = await fetch('/api/partner/sync-onedrive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ spreadsheetUrl: settings.partnerSpreadsheetUrl }),
+      });
+      const data = await res.json();
+
+      if (data.success && Array.isArray(data.orders)) {
+        const liveOrders: Order[] = data.orders;
+        const liveIds = new Set(liveOrders.map((o) => o.id));
+
+        setOrders((prev) => {
+          const nonPartnerOrders = prev.filter((o) => !liveIds.has(o.id) && o.source !== 'partner_excel');
+          return [...liveOrders, ...nonPartnerOrders];
+        });
+
+        return {
+          success: true,
+          count: liveOrders.length,
+          message: `${liveOrders.length} encomendas sincronizadas diretamente do link do OneDrive!`,
+        };
+      }
+    } catch (e) {
+      console.warn('Erro ao chamar API do OneDrive:', e);
+    }
+
+    // Fallback com as encomendas iniciais caso o OneDrive oscile
     const partnerOrders = initialOrders.filter((o) => o.source === 'partner_excel');
     const partnerIds = new Set(partnerOrders.map((o) => o.id));
 
@@ -366,7 +393,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return {
       success: true,
       count: partnerOrders.length,
-      message: `${partnerOrders.length} encomendas da planilha do parceiro sincronizadas com o calendário!`,
+      message: `${partnerOrders.length} encomendas sincronizadas com o calendário!`,
     };
   };
 

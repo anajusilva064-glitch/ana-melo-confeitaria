@@ -181,15 +181,18 @@ export default function AdminEncomendasAgendaPage() {
     return cells;
   }, [currentYear, currentMonth, preOrders]);
 
-  // Sincronização com a Planilha do Parceiro
-  const handleSyncPartner = () => {
+  // Sincronização em Tempo Real com a Planilha do Parceiro (OneDrive)
+  const handleSyncPartner = async () => {
     setIsSyncing(true);
-    setTimeout(() => {
-      const res = syncPartnerSpreadsheet();
-      setIsSyncing(false);
+    try {
+      const res = await syncPartnerSpreadsheet();
       setSyncToast(res.message);
-      setTimeout(() => setSyncToast(null), 4000);
-    }, 600);
+    } catch {
+      setSyncToast('Erro ao consultar o link do OneDrive.');
+    } finally {
+      setIsSyncing(false);
+      setTimeout(() => setSyncToast(null), 5000);
+    }
   };
 
   // Criação rápida de encomenda
