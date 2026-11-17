@@ -15,9 +15,9 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto rounded-2xl glass-panel shadow-sm px-4 sm:px-6 h-20 flex items-center justify-between transition-all">
         {/* Brand Logo & Name */}
         <Link href="/" className="flex items-center gap-3.5 group">
-          <div className="relative w-12 h-12 rounded-full overflow-hidden border border-[#D5BFA8]/80 shadow-xs group-hover:scale-105 transition-all duration-300 bg-white">
+          <div className="relative w-11 h-11 rounded-full overflow-hidden border border-[#D5BFA8]/80 shadow-xs group-hover:scale-105 transition-all duration-300 bg-white shrink-0">
             <img
-              src="/logo.jpg"
+              src="/icon.jpg"
               alt="Ana Melo Confeitaria"
               className="w-full h-full object-cover"
             />
