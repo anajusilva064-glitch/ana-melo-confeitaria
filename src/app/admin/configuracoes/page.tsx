@@ -11,6 +11,10 @@ export default function AdminConfiguracoesPage() {
   const [formData, setFormData] = useState(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
+  React.useEffect(() => {
+    setFormData(settings);
+  }, [settings]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(formData);
@@ -210,13 +214,13 @@ export default function AdminConfiguracoesPage() {
 
         {/* Submit Button */}
         <div className="flex items-center gap-3">
-          <button
-            type="submit"
-            className="px-6 py-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold text-sm flex items-center gap-2 shadow-md transition-all active:scale-95"
-          >
-            {savedSuccess ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-            <span>{savedSuccess ? 'Configurações Salvas!' : 'Salvar Alterações'}</span>
-          </button>
+        <button
+          type="submit"
+          className="px-6 py-3 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] text-white font-semibold text-sm flex items-center gap-2 shadow-sm transition-all active:scale-95"
+        >
+          {savedSuccess ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          <span>{savedSuccess ? 'Configurações Salvas!' : 'Salvar Alterações'}</span>
+        </button>
         </div>
       </form>
     </div>

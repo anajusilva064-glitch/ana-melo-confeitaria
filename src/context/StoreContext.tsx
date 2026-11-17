@@ -99,26 +99,68 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setIsClient(true);
     try {
-      const savedSettings = localStorage.getItem('ana_melo_settings');
-      if (savedSettings) setSettings(JSON.parse(savedSettings));
+      // Limpeza de cache antigo para garantir que os dados reais da Ana Melo Confeitaria sejam aplicados
+      const oldSettings = localStorage.getItem('ana_melo_settings');
+      if (oldSettings) {
+        try {
+          const parsed = JSON.parse(oldSettings);
+          if (parsed.address?.includes('Camélias') || parsed.whatsapp?.includes('98765') || parsed.storeName?.includes('Gourmet')) {
+            localStorage.removeItem('ana_melo_settings');
+            localStorage.removeItem('ana_melo_orders');
+            localStorage.removeItem('ana_melo_products');
+            localStorage.removeItem('ana_melo_categories');
+          }
+        } catch {}
+      }
 
-      const savedCategories = localStorage.getItem('ana_melo_categories');
-      if (savedCategories) setCategories(JSON.parse(savedCategories));
+      const savedSettings = localStorage.getItem('ana_melo_settings_v3');
+      if (savedSettings) {
+        setSettings(JSON.parse(savedSettings));
+      } else {
+        setSettings(initialSettings);
+      }
 
-      const savedProducts = localStorage.getItem('ana_melo_products');
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
+      const savedCategories = localStorage.getItem('ana_melo_categories_v3');
+      if (savedCategories) {
+        setCategories(JSON.parse(savedCategories));
+      } else {
+        setCategories(initialCategories);
+      }
 
-      const savedCustomOptions = localStorage.getItem('ana_melo_custom_options');
-      if (savedCustomOptions) setCustomOptions(JSON.parse(savedCustomOptions));
+      const savedProducts = localStorage.getItem('ana_melo_products_v3');
+      if (savedProducts) {
+        setProducts(JSON.parse(savedProducts));
+      } else {
+        setProducts(initialProducts);
+      }
 
-      const savedIngredients = localStorage.getItem('ana_melo_ingredients');
-      if (savedIngredients) setIngredients(JSON.parse(savedIngredients));
+      const savedCustomOptions = localStorage.getItem('ana_melo_custom_options_v3');
+      if (savedCustomOptions) {
+        setCustomOptions(JSON.parse(savedCustomOptions));
+      } else {
+        setCustomOptions(initialCustomOptions);
+      }
 
-      const savedOrders = localStorage.getItem('ana_melo_orders');
-      if (savedOrders) setOrders(JSON.parse(savedOrders));
+      const savedIngredients = localStorage.getItem('ana_melo_ingredients_v3');
+      if (savedIngredients) {
+        setIngredients(JSON.parse(savedIngredients));
+      } else {
+        setIngredients(initialIngredients);
+      }
 
-      const savedTransactions = localStorage.getItem('ana_melo_transactions');
-      if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+      const savedOrders = localStorage.getItem('ana_melo_orders_v3');
+      if (savedOrders) {
+        setOrders(JSON.parse(savedOrders));
+      } else {
+        setOrders(initialOrders);
+      }
+
+      const savedTransactions = localStorage.getItem('ana_melo_transactions_v3');
+      if (savedTransactions) {
+        setTransactions(JSON.parse(savedTransactions));
+      } else {
+        setTransactions(initialTransactions);
+      }
 
       const savedCart = localStorage.getItem('ana_melo_cart');
       if (savedCart) setCart(JSON.parse(savedCart));
@@ -130,37 +172,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Salvar no localStorage sempre que houver alterações
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_settings', JSON.stringify(settings));
+    localStorage.setItem('ana_melo_settings_v3', JSON.stringify(settings));
   }, [settings, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_categories', JSON.stringify(categories));
+    localStorage.setItem('ana_melo_categories_v3', JSON.stringify(categories));
   }, [categories, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_products', JSON.stringify(products));
+    localStorage.setItem('ana_melo_products_v3', JSON.stringify(products));
   }, [products, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_custom_options', JSON.stringify(customOptions));
+    localStorage.setItem('ana_melo_custom_options_v3', JSON.stringify(customOptions));
   }, [customOptions, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_ingredients', JSON.stringify(ingredients));
+    localStorage.setItem('ana_melo_ingredients_v3', JSON.stringify(ingredients));
   }, [ingredients, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_orders', JSON.stringify(orders));
+    localStorage.setItem('ana_melo_orders_v3', JSON.stringify(orders));
   }, [orders, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_transactions', JSON.stringify(transactions));
+    localStorage.setItem('ana_melo_transactions_v3', JSON.stringify(transactions));
   }, [transactions, isClient]);
 
   useEffect(() => {
