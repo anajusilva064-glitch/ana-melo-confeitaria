@@ -19,10 +19,10 @@ import {
 } from 'lucide-react';
 
 const columns: { id: OrderStatus; title: string; color: string; badgeColor: string }[] = [
-  { id: 'received', title: 'Novos Pedidos 🔔', color: 'border-rose-300 bg-rose-50/40', badgeColor: 'bg-rose-500 text-white' },
-  { id: 'preparing', title: 'Na Cozinha / Produção 🧁', color: 'border-amber-300 bg-amber-50/40', badgeColor: 'bg-amber-500 text-stone-900' },
-  { id: 'ready', title: 'Pronto p/ Retirada / Rota 📦', color: 'border-blue-300 bg-blue-50/40', badgeColor: 'bg-blue-600 text-white' },
-  { id: 'finished', title: 'Concluídos & Entregues ✅', color: 'border-emerald-300 bg-emerald-50/40', badgeColor: 'bg-emerald-600 text-white' },
+  { id: 'received', title: 'Novos Pedidos', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#C69255] text-white' },
+  { id: 'preparing', title: 'Em Produção', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#7A5A43] text-white' },
+  { id: 'ready', title: 'Pronto para Retirada', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#3D1F0D] text-white' },
+  { id: 'finished', title: 'Concluídos', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#4A2810] text-white' },
 ];
 
 export default function AdminPedidosKanbanPage() {
@@ -59,19 +59,15 @@ export default function AdminPedidosKanbanPage() {
   };
 
   const handleNotifyCustomer = (order: Order) => {
-    let msg = `Olá, *${order.customerName}*! Tudo bem? 🧁\n\n`;
+    let msg = `Olá, *${order.customerName}*! Tudo bem?\n\n`;
     if (order.orderStatus === 'preparing') {
-      msg += `Passando para avisar que sua encomenda *${order.orderNumber}* já está sendo preparada com todo carinho no ateliê da *${settings.storeName}*!`;
+      msg += `Passando para avisar que sua encomenda *${order.orderNumber}* já está sendo preparada no ateliê da *${settings.storeName}*.`;
     } else if (order.orderStatus === 'ready') {
-      if (order.deliveryType === 'pickup') {
-        msg += `Seu pedido *${order.orderNumber}* está *PRONTO* te esperando para retirada no ateliê! 🎁\n📍 Endereço: ${settings.address}`;
-      } else {
-        msg += `Seu pedido *${order.orderNumber}* acabou de sair para entrega a caminho do seu endereço! 🛵💨`;
-      }
+      msg += `Seu pedido *${order.orderNumber}* está pronto te esperando para retirada no ateliê!\nLocal: ${settings.address}`;
     } else if (order.orderStatus === 'finished') {
-      msg += `Muito obrigado pela preferência com a *${settings.storeName}*! Esperamos que seu momento seja doce e inesquecível. Se puder, nos marque no Instagram: ${settings.instagram} ❤️`;
+      msg += `Agradecemos a confiança com a *${settings.storeName}*! Esperamos que aprecie cada detalhe. Se puder, nos marque no Instagram: ${settings.instagram}`;
     } else {
-      msg += `Confirmamos o recebimento do seu pedido *${order.orderNumber}* no valor de ${formatCurrency(order.totalAmount)}. Em breve iniciaremos o preparo!`;
+      msg += `Confirmamos o recebimento do seu pedido *${order.orderNumber}* no valor de ${formatCurrency(order.totalAmount)}. Em breve iniciaremos a produção.`;
     }
 
     const link = createWhatsAppLink(order.customerPhone, msg);

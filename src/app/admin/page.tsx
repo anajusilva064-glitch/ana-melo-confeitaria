@@ -270,13 +270,13 @@ export default function AdminDashboardPage() {
             )}
           </div>
 
-          <div className="p-4 rounded-xl bg-rose-50 border border-rose-100 text-xs text-stone-600 space-y-2">
-            <div className="font-bold text-rose-900 flex items-center gap-1.5">
-              <Cake className="w-4 h-4 text-rose-500" />
-              <span>Dica de Gestão Ana Melo</span>
+          <div className="p-4 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] text-xs text-[#5A3821] space-y-2">
+            <div className="font-bold text-[#3D1F0D] flex items-center gap-1.5">
+              <Cake className="w-4 h-4 text-[#C69255]" />
+              <span>Gestão de Produção Ana Melo</span>
             </div>
-            <p className="text-[11px] leading-relaxed">
-              Manter o estoque de leite condensado Moça e embalagens de transporte abastecido garante que nenhuma encomenda de última hora seja recusada no final de semana!
+            <p className="text-[11px] leading-relaxed text-[#7A5A43]">
+              Acompanhar o estoque de insumos e embalagens de transporte com antecedência garante que nenhuma encomenda de fim de semana seja recusada.
             </p>
           </div>
         </div>

@@ -113,14 +113,15 @@ export type StoreSettings = {
   tagline: string;
   whatsapp: string;
   instagram: string;
+  instagramUrl: string;
   address: string;
   pixKey: string;
   pixKeyType: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
   pixReceiverName: string;
   defaultDeliveryFee: number;
   freeDeliveryMinAmount: number;
-  minNoticeHoursReady: number; // horas de antecedência para pronta entrega (ex: 1h)
-  minNoticeHoursCustom: number; // horas de antecedência para encomendas (ex: 48h)
+  minNoticeHoursReady: number;
+  minNoticeHoursCustom: number;
   businessHours: string;
   isOpen: boolean;
 };

@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '@/context/StoreContext';
 import { formatCurrency } from '@/lib/utils';
-import { X, Check, Sparkles, AlertCircle, ShoppingBag } from 'lucide-react';
+import { X, Check, ShoppingBag } from 'lucide-react';
 
 export default function CustomOrderModal() {
   const {
@@ -21,14 +21,12 @@ export default function CustomOrderModal() {
   const [selectedExtraIds, setSelectedExtraIds] = useState<string[]>([]);
   const [cakeMessage, setCakeMessage] = useState<string>('');
 
-  // Filtrar opções por tipo
   const sizes = useMemo(() => customOptions.filter((o) => o.type === 'size' && o.isAvailable), [customOptions]);
   const doughs = useMemo(() => customOptions.filter((o) => o.type === 'dough' && o.isAvailable), [customOptions]);
   const fillings = useMemo(() => customOptions.filter((o) => o.type === 'filling' && o.isAvailable), [customOptions]);
   const toppings = useMemo(() => customOptions.filter((o) => o.type === 'topping' && o.isAvailable), [customOptions]);
   const extras = useMemo(() => customOptions.filter((o) => o.type === 'extra' && o.isAvailable), [customOptions]);
 
-  // Inicializar opções padrão ao abrir
   React.useEffect(() => {
     if (isCustomModalOpen) {
       if (sizes.length > 0 && !selectedSizeId) setSelectedSizeId(sizes[0].id);
@@ -40,7 +38,6 @@ export default function CustomOrderModal() {
 
   if (!isCustomModalOpen || !customizingProduct) return null;
 
-  // Cálculo de Preço Total
   const basePrice = customizingProduct.price;
   const sizeOption = sizes.find((s) => s.id === selectedSizeId);
   const doughOption = doughs.find((d) => d.id === selectedDoughId);
@@ -64,7 +61,6 @@ export default function CustomOrderModal() {
     fillingsTotal +
     extrasTotal;
 
-  // Toggle de Recheios (Permite até 2)
   const toggleFilling = (id: string) => {
     if (selectedFillingIds.includes(id)) {
       if (selectedFillingIds.length > 1) {
@@ -74,7 +70,6 @@ export default function CustomOrderModal() {
       if (selectedFillingIds.length < 2) {
         setSelectedFillingIds([...selectedFillingIds, id]);
       } else {
-        // Substitui o último
         setSelectedFillingIds([selectedFillingIds[0], id]);
       }
     }
@@ -117,41 +112,38 @@ export default function CustomOrderModal() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-in fade-in">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        {/* Modal Header */}
-        <div className="p-6 bg-gradient-to-r from-rose-500 to-rose-600 text-white flex items-center justify-between shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1F1108]/60 backdrop-blur-xs">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-[#E8D5C4]">
+        {/* Header */}
+        <div className="p-6 bg-[#3D1F0D] text-[#FAF7F3] flex items-center justify-between shrink-0">
           <div>
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span className="text-xs font-semibold tracking-wider uppercase text-rose-100">
-                Monte sua Encomenda Exclusiva
-              </span>
-            </div>
-            <h2 className="font-serif text-xl sm:text-2xl font-bold mt-0.5">
+            <span className="text-[11px] font-medium tracking-widest uppercase text-[#C69255] block">
+              Personalização da Encomenda
+            </span>
+            <h2 className="font-serif text-xl sm:text-2xl font-bold mt-0.5 text-white">
               {customizingProduct.name}
             </h2>
           </div>
           <button
             onClick={() => setIsCustomModalOpen(false)}
-            className="w-9 h-9 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-white transition-colors"
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body (Scrollable) */}
-        <div className="p-6 overflow-y-auto space-y-8 flex-1">
+        {/* Body */}
+        <div className="p-6 overflow-y-auto space-y-7 flex-1">
           {/* Passo 1: Tamanho */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-serif text-base font-bold text-stone-900 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 text-xs font-bold flex items-center justify-center">
+              <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
                   1
                 </span>
-                Escolha o Tamanho do Bolo
+                Tamanho do Bolo
               </h3>
-              <span className="text-xs text-stone-500 font-medium">Obrigatório</span>
+              <span className="text-xs text-[#7A5A43] font-medium">Obrigatório</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {sizes.map((size) => {
@@ -160,22 +152,22 @@ export default function CustomOrderModal() {
                   <div
                     key={size.id}
                     onClick={() => setSelectedSizeId(size.id)}
-                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                    className={`p-4 rounded-xl border cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-rose-500 bg-rose-50/60 shadow-xs'
-                        : 'border-stone-200 hover:border-rose-200 bg-white'
+                        ? 'border-[#3D1F0D] bg-[#F7F2EC] shadow-xs'
+                        : 'border-[#E8D5C4] hover:border-[#C69255] bg-white'
                     }`}
                   >
                     <div className="flex items-start justify-between">
-                      <span className="text-xs font-bold text-stone-900">{size.name}</span>
-                      {isSelected && <Check className="w-4 h-4 text-rose-600 shrink-0" />}
+                      <span className="text-xs font-bold text-[#3D1F0D]">{size.name}</span>
+                      {isSelected && <Check className="w-4 h-4 text-[#3D1F0D] shrink-0" />}
                     </div>
                     {size.description && (
-                      <p className="mt-1 text-[11px] text-stone-500 leading-tight">
+                      <p className="mt-1 text-[11px] text-[#7A5A43] leading-tight">
                         {size.description}
                       </p>
                     )}
-                    <span className="mt-2 block text-xs font-semibold text-rose-600">
+                    <span className="mt-2 block text-xs font-semibold text-[#C69255]">
                       {size.extraPrice > 0 ? `+ ${formatCurrency(size.extraPrice)}` : 'Incluso'}
                     </span>
                   </div>
@@ -187,15 +179,15 @@ export default function CustomOrderModal() {
           {/* Passo 2: Massa */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-serif text-base font-bold text-stone-900 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 text-xs font-bold flex items-center justify-center">
+              <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
                   2
                 </span>
-                Escolha a Massa Artesanal
+                Massa
               </h3>
-              <span className="text-xs text-stone-500 font-medium">Obrigatório</span>
+              <span className="text-xs text-[#7A5A43] font-medium">Obrigatório</span>
             </div>
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {doughs.map((dough) => {
                 const isSelected = selectedDoughId === dough.id;
                 return (
@@ -204,25 +196,25 @@ export default function CustomOrderModal() {
                     onClick={() => setSelectedDoughId(dough.id)}
                     className={`p-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-rose-500 bg-rose-50/50 shadow-xs'
-                        : 'border-stone-200 hover:border-rose-200'
+                        ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                        : 'border-[#E8D5C4] hover:border-[#C69255]'
                     }`}
                   >
                     <div>
-                      <div className="text-xs sm:text-sm font-semibold text-stone-900">{dough.name}</div>
+                      <div className="text-xs sm:text-sm font-semibold text-[#3D1F0D]">{dough.name}</div>
                       {dough.description && (
-                        <div className="text-[11px] text-stone-500">{dough.description}</div>
+                        <div className="text-[11px] text-[#7A5A43]">{dough.description}</div>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       {dough.extraPrice > 0 && (
-                        <span className="text-xs font-semibold text-rose-600">
+                        <span className="text-xs font-semibold text-[#C69255]">
                           + {formatCurrency(dough.extraPrice)}
                         </span>
                       )}
                       <div
                         className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          isSelected ? 'border-rose-500 bg-rose-500 text-white' : 'border-stone-300'
+                          isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
                         }`}
                       >
                         {isSelected && <Check className="w-3 h-3" />}
@@ -234,16 +226,16 @@ export default function CustomOrderModal() {
             </div>
           </div>
 
-          {/* Passo 3: Recheios (Até 2) */}
+          {/* Passo 3: Recheios */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-serif text-base font-bold text-stone-900 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 text-xs font-bold flex items-center justify-center">
+              <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
                   3
                 </span>
-                Escolha até 2 Recheios
+                Recheios (Até 2 opções)
               </h3>
-              <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-semibold text-[#3D1F0D] bg-[#EFE4D8] px-2 py-0.5 rounded-md">
                 {selectedFillingIds.length}/2 selecionados
               </span>
             </div>
@@ -256,21 +248,21 @@ export default function CustomOrderModal() {
                     onClick={() => toggleFilling(filling.id)}
                     className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-rose-500 bg-rose-50/50 shadow-xs'
-                        : 'border-stone-200 hover:border-rose-200'
+                        ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                        : 'border-[#E8D5C4] hover:border-[#C69255]'
                     }`}
                   >
                     <div>
-                      <div className="text-xs font-semibold text-stone-900">{filling.name}</div>
+                      <div className="text-xs font-semibold text-[#3D1F0D]">{filling.name}</div>
                       {filling.extraPrice > 0 && (
-                        <span className="text-[11px] font-medium text-rose-600">
+                        <span className="text-[11px] font-medium text-[#C69255]">
                           + {formatCurrency(filling.extraPrice)}
                         </span>
                       )}
                     </div>
                     <div
                       className={`w-5 h-5 rounded-md border flex items-center justify-center ${
-                        isSelected ? 'border-rose-500 bg-rose-500 text-white' : 'border-stone-300'
+                        isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
                       }`}
                     >
                       {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -284,13 +276,13 @@ export default function CustomOrderModal() {
           {/* Passo 4: Cobertura */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-serif text-base font-bold text-stone-900 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 text-xs font-bold flex items-center justify-center">
+              <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
                   4
                 </span>
-                Cobertura & Decoração
+                Cobertura e Decoração
               </h3>
-              <span className="text-xs text-stone-500 font-medium">Obrigatório</span>
+              <span className="text-xs text-[#7A5A43] font-medium">Obrigatório</span>
             </div>
             <div className="space-y-2">
               {toppings.map((top) => {
@@ -301,25 +293,25 @@ export default function CustomOrderModal() {
                     onClick={() => setSelectedToppingId(top.id)}
                     className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-rose-500 bg-rose-50/50 shadow-xs'
-                        : 'border-stone-200 hover:border-rose-200'
+                        ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                        : 'border-[#E8D5C4] hover:border-[#C69255]'
                     }`}
                   >
                     <div>
-                      <div className="text-xs font-semibold text-stone-900">{top.name}</div>
+                      <div className="text-xs font-semibold text-[#3D1F0D]">{top.name}</div>
                       {top.description && (
-                        <div className="text-[11px] text-stone-500">{top.description}</div>
+                        <div className="text-[11px] text-[#7A5A43]">{top.description}</div>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       {top.extraPrice > 0 && (
-                        <span className="text-xs font-semibold text-rose-600">
+                        <span className="text-xs font-semibold text-[#C69255]">
                           + {formatCurrency(top.extraPrice)}
                         </span>
                       )}
                       <div
                         className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                          isSelected ? 'border-rose-500 bg-rose-500 text-white' : 'border-stone-300'
+                          isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
                         }`}
                       >
                         {isSelected && <Check className="w-3 h-3" />}
@@ -331,14 +323,14 @@ export default function CustomOrderModal() {
             </div>
           </div>
 
-          {/* Passo 5: Adicionais & Mensagem do Bolo */}
+          {/* Passo 5: Topo e Mensagem */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-serif text-base font-bold text-stone-900 flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-rose-100 text-rose-600 text-xs font-bold flex items-center justify-center">
+              <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
                   5
                 </span>
-                Adicionais Especiais (Opcional)
+                Adicionais (Opcional)
               </h3>
             </div>
             <div className="space-y-2 mb-4">
@@ -350,18 +342,18 @@ export default function CustomOrderModal() {
                     onClick={() => toggleExtra(extra.id)}
                     className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                       isSelected
-                        ? 'border-rose-500 bg-rose-50/50'
-                        : 'border-stone-200 hover:border-rose-200'
+                        ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                        : 'border-[#E8D5C4] hover:border-[#C69255]'
                     }`}
                   >
-                    <div className="text-xs font-medium text-stone-900">{extra.name}</div>
+                    <div className="text-xs font-medium text-[#3D1F0D]">{extra.name}</div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-rose-600">
+                      <span className="text-xs font-semibold text-[#C69255]">
                         + {formatCurrency(extra.extraPrice)}
                       </span>
                       <div
                         className={`w-5 h-5 rounded-md border flex items-center justify-center ${
-                          isSelected ? 'border-rose-500 bg-rose-500 text-white' : 'border-stone-300'
+                          isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
                         }`}
                       >
                         {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -372,32 +364,31 @@ export default function CustomOrderModal() {
               })}
             </div>
 
-            {/* Mensagem personalizada no topo ou velinha */}
-            <label className="block text-xs font-semibold text-stone-700 mb-1">
-              Frase no Topo do Bolo ou Observação (Ex: "Parabéns Sofia 15 Anos!")
+            <label className="block text-xs font-semibold text-[#3D1F0D] mb-1">
+              Nome ou frase para o topo / escrita no bolo
             </label>
             <input
               type="text"
-              placeholder="Digite aqui a frase personalizada..."
+              placeholder="Ex: Parabéns Helena"
               value={cakeMessage}
               onChange={(e) => setCakeMessage(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-hidden focus:border-rose-500 focus:ring-2 focus:ring-rose-200"
+              className="w-full px-4 py-2.5 rounded-xl border border-[#D5BFA8] text-xs sm:text-sm focus:outline-hidden focus:border-[#3D1F0D]"
             />
           </div>
         </div>
 
-        {/* Modal Footer with Live Price & Add Action */}
-        <div className="p-5 bg-stone-50 border-t border-stone-200 flex items-center justify-between shrink-0">
+        {/* Footer */}
+        <div className="p-5 bg-[#FAF7F3] border-t border-[#E8D5C4] flex items-center justify-between shrink-0">
           <div>
-            <span className="text-xs text-stone-500 block">Total da Encomenda</span>
-            <span className="text-2xl font-bold text-stone-900 font-sans">
+            <span className="text-[11px] text-[#7A5A43] block">Valor Total</span>
+            <span className="text-xl sm:text-2xl font-bold text-[#3D1F0D] font-sans">
               {formatCurrency(totalPrice)}
             </span>
           </div>
 
           <button
             onClick={handleConfirm}
-            className="px-6 py-3 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-rose-200 active:scale-95 transition-all"
+            className="px-6 py-3 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] font-medium text-xs sm:text-sm flex items-center gap-2 shadow-sm active:scale-95 transition-all"
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Adicionar à Sacola</span>
