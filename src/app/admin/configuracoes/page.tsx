@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useStore } from '@/context/StoreContext';
 import { formatCurrency } from '@/lib/utils';
-import { Settings, Save, Check, Sparkles, Store, ShieldCheck } from 'lucide-react';
+import { Settings, Save, Check, Sparkles, Store, ShieldCheck, Calendar, ExternalLink } from 'lucide-react';
 
 export default function AdminConfiguracoesPage() {
   const { settings, updateSettings } = useStore();
@@ -87,14 +87,53 @@ export default function AdminConfiguracoesPage() {
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-stone-700 mb-1">Endereço do Ateliê (Para retiradas)</label>
-              <input
-                type="text"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 text-xs sm:text-sm focus:outline-hidden focus:border-rose-500"
-              />
+            <div className="sm:col-span-2 space-y-3 p-4 rounded-xl bg-amber-50/60 border border-amber-200/80">
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="font-semibold text-stone-900 text-xs block">
+                    Privacidade de Endereço (Atendimento Residencial)
+                  </label>
+                  <p className="text-[11px] text-stone-500">
+                    Oculte a rua e número na loja pública para proteger a residência. O endereço completo só é enviado privadamente na confirmação do pedido.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!formData.showExactAddressPublicly}
+                    onChange={(e) => setFormData({ ...formData, showExactAddressPublicly: !e.target.checked })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-stone-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
+                </label>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-amber-200/60">
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">
+                    Endereço Real Completo (Privado / Confirmação)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-lg border border-stone-200 bg-white text-xs font-medium focus:outline-hidden focus:border-amber-600"
+                    placeholder="Rua Marcio Bacaraim Possebom 2082"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">
+                    Texto Exibido no Site Público
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.publicAddressText || ''}
+                    onChange={(e) => setFormData({ ...formData, publicAddressText: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-lg border border-stone-200 bg-white text-xs focus:outline-hidden focus:border-amber-600"
+                    placeholder="Ateliê em Maringá - PR (Endereço enviado na confirmação)"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="sm:col-span-2">
@@ -277,6 +316,59 @@ export default function AdminConfiguracoesPage() {
           <p className="text-[11px] text-[#7A5A43] leading-relaxed">
             Quando ativado, cada vez que o status de uma encomenda for alterado no Kanban (ex: "Pronto para Retirada"), uma mensagem padronizada com o endereço do ateliê é enviada automaticamente para o cliente.
           </p>
+        </div>
+
+        {/* Integração com Planilha de Encomendas do Parceiro (Excel / OneDrive) */}
+        <div className="p-6 rounded-2xl bg-white border border-[#D5BFA8] shadow-2xs space-y-4">
+          <div className="flex items-center justify-between border-b border-[#EFE4D8] pb-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-[#C69255]" />
+              <h2 className="font-serif text-base font-bold text-[#3D1F0D]">
+                Sincronização com Planilha do Parceiro (Excel / OneDrive)
+              </h2>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.partnerSyncEnabled}
+                onChange={(e) => setFormData({ ...formData, partnerSyncEnabled: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-stone-300 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-stone-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#3D1F0D]"></div>
+            </label>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            <div>
+              <label className="block font-semibold text-[#3D1F0D] mb-1">
+                Link de Compartilhamento da Planilha (OneDrive / Excel Online)
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="https://1drv.ms/x/..."
+                  value={formData.partnerSpreadsheetUrl || ''}
+                  onChange={(e) => setFormData({ ...formData, partnerSpreadsheetUrl: e.target.value })}
+                  className="flex-1 px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs font-mono focus:outline-hidden focus:border-[#3D1F0D]"
+                />
+                {formData.partnerSpreadsheetUrl && (
+                  <a
+                    href={formData.partnerSpreadsheetUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2.5 rounded-xl bg-[#FAF7F3] border border-[#D5BFA8] hover:bg-[#EFE4D8] text-[#3D1F0D] font-semibold text-xs flex items-center gap-1.5 transition-colors"
+                  >
+                    <span>Abrir Planilha</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <p className="text-[11px] text-[#7A5A43] leading-relaxed">
+              As encomendas preenchidas pelo parceiro nas abas mensais do Excel (como Vanessa, Mariana, Fabio, Amanda) são lidas e convertidas diretamente em pedidos com data, quantidade e valores no <strong>Calendário & Kanban de Encomendas</strong>.
+            </p>
+          </div>
         </div>
 
         {/* Submit Button */}

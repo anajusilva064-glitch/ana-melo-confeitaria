@@ -5,7 +5,7 @@ import { useStore } from '@/context/StoreContext';
 import { Order, OrderStatus } from '@/types';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import {
-  Calendar,
+  Calendar as CalendarIcon,
   Clock,
   Printer,
   ChevronRight,
@@ -18,58 +18,213 @@ import {
   Cake,
   Boxes,
   Check,
+  RefreshCw,
+  ExternalLink,
+  Plus,
+  LayoutGrid,
+  Columns3,
+  FileSpreadsheet,
+  Phone,
+  AlertCircle,
+  Tag,
 } from 'lucide-react';
-import { sendAutomaticWhatsAppNotification, getWhatsAppNotificationMessage } from '@/lib/whatsapp';
+import { sendAutomaticWhatsAppNotification } from '@/lib/whatsapp';
+
+const monthNames = [
+  'Janeiro',
+  'Fevereiro',
+  'Março',
+  'Abril',
+  'Maio',
+  'Junho',
+  'Julho',
+  'Agosto',
+  'Setembro',
+  'Outubro',
+  'Novembro',
+  'Dezembro',
+];
+
+const weekDays = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
 
 const agendaColumns: { id: OrderStatus; title: string; color: string; badgeColor: string }[] = [
   { id: 'received', title: 'Agendadas (Aguardando Data)', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#C69255] text-white' },
-  { id: 'preparing', title: 'Em Produção Antecipada', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#7A5A43] text-white' },
+  { id: 'preparing', title: 'Em Produção', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#7A5A43] text-white' },
   { id: 'ready', title: 'Prontas para Retirada', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#3D1F0D] text-white' },
-  { id: 'finished', title: 'Entregues e Concluídas', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-[#4A2810] text-white' },
+  { id: 'finished', title: 'Entregues / Concluídas', color: 'border-[#D5BFA8] bg-[#FAF7F3]', badgeColor: 'bg-emerald-700 text-white' },
 ];
 
 export default function AdminEncomendasAgendaPage() {
-  const { orders, updateOrderStatus, settings } = useStore();
-  const [selectedDate, setSelectedDate] = useState<string>('all');
-  const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<Order | null>(null);
-  const [notifyingOrderId, setNotifyingOrderId] = useState<string | null>(null);
-  const [notificationSuccess, setNotificationSuccess] = useState<string | null>(null);
+  const { orders, updateOrderStatus, addOrder, syncPartnerSpreadsheet, settings } = useStore();
 
-  // Filtra apenas encomendas (pedidos sob encomenda agendados)
+  // Estados de Visualização
+  const [viewMode, setViewMode] = useState<'calendar' | 'kanban'>('calendar');
+  const [currentYear, setCurrentYear] = useState<number>(2026);
+  const [currentMonth, setCurrentMonth] = useState<number>(10); // 10 = Novembro (0-indexed)
+
+  // Filtros
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'partner_excel' | 'storefront'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedDayOrders, setSelectedDayOrders] = useState<{ dateStr: string; orders: Order[] } | null>(null);
+
+  // Modais e Ações
+  const [selectedOrderDetails, setSelectedOrderDetails] = useState<Order | null>(null);
+  const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<Order | null>(null);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+
+  // Formulário de Nova Encomenda
+  const [newOrderForm, setNewOrderForm] = useState({
+    customerName: '',
+    customerPhone: '',
+    scheduledDate: '2026-11-20',
+    scheduledTime: '15:00',
+    productName: 'Cento de Doces Gourmet de Festa (100 unidades)',
+    totalAmount: 190.0,
+    notes: '',
+    source: 'partner_excel' as 'partner_excel' | 'storefront',
+  });
+
+  // Filtra encomendas
   const preOrders = useMemo(() => {
     return orders.filter((o) => {
-      // Pedido com itens de personalização ou data agendada
-      const hasCustom = o.items.some((i) => Boolean(i.customDetails));
-      return o.isPreOrder || hasCustom || o.deliveryType === 'pickup';
+      const matchSource =
+        sourceFilter === 'all'
+          ? true
+          : sourceFilter === 'partner_excel'
+          ? o.source === 'partner_excel'
+          : o.source !== 'partner_excel';
+
+      const matchStatus = statusFilter === 'all' ? true : o.orderStatus === statusFilter;
+
+      return matchSource && matchStatus;
     });
-  }, [orders]);
+  }, [orders, sourceFilter, statusFilter]);
 
-  // Lista de datas únicas com encomendas
-  const availableDates = useMemo(() => {
-    const dates = Array.from(new Set(preOrders.map((o) => o.scheduledDate))).sort();
-    return dates;
-  }, [preOrders]);
+  // Contadores
+  const partnerOrdersCount = useMemo(() => orders.filter((o) => o.source === 'partner_excel').length, [orders]);
+  const storefrontOrdersCount = useMemo(() => orders.filter((o) => o.source !== 'partner_excel').length, [orders]);
 
-  const filteredOrders = useMemo(() => {
-    if (selectedDate === 'all') return preOrders;
-    return preOrders.filter((o) => o.scheduledDate === selectedDate);
-  }, [preOrders, selectedDate]);
-
-  const handleNotifyCustomer = async (order: Order) => {
-    setNotifyingOrderId(order.id);
-    const result = await sendAutomaticWhatsAppNotification(
-      order,
-      order.orderStatus,
-      settings.storeName,
-      settings.address,
-      settings.instagram
-    );
-
-    setNotifyingOrderId(null);
-    if (result.success) {
-      setNotificationSuccess(order.id);
-      setTimeout(() => setNotificationSuccess(null), 2500);
+  // Navegação de Mês do Calendário
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((prev) => prev - 1);
+    } else {
+      setCurrentMonth((prev) => prev - 1);
     }
+  };
+
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((prev) => prev + 1);
+    } else {
+      setCurrentMonth((prev) => prev + 1);
+    }
+  };
+
+  const handleToday = () => {
+    setCurrentYear(2026);
+    setCurrentMonth(10); // Novembro
+  };
+
+  // Geração da Grade Mensal do Calendário
+  const calendarGrid = useMemo(() => {
+    const firstDayOfWeek = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Domingo
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+    const cells: {
+      dayNumber: number | null;
+      dateStr: string | null;
+      isCurrentMonth: boolean;
+      orders: Order[];
+    }[] = [];
+
+    // Células vazias do início (padding)
+    for (let i = 0; i < firstDayOfWeek; i++) {
+      cells.push({
+        dayNumber: null,
+        dateStr: null,
+        isCurrentMonth: false,
+        orders: [],
+      });
+    }
+
+    // Dias do mês
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayPadded = String(day).padStart(2, '0');
+      const monthPadded = String(currentMonth + 1).padStart(2, '0');
+      const dateStr = `${currentYear}-${monthPadded}-${dayPadded}`;
+
+      const dayOrders = preOrders.filter((o) => o.scheduledDate === dateStr);
+
+      cells.push({
+        dayNumber: day,
+        dateStr,
+        isCurrentMonth: true,
+        orders: dayOrders,
+      });
+    }
+
+    // Preenche até múltiplo de 7 se necessário
+    while (cells.length % 7 !== 0) {
+      cells.push({
+        dayNumber: null,
+        dateStr: null,
+        isCurrentMonth: false,
+        orders: [],
+      });
+    }
+
+    return cells;
+  }, [currentYear, currentMonth, preOrders]);
+
+  // Sincronização com a Planilha do Parceiro
+  const handleSyncPartner = () => {
+    setIsSyncing(true);
+    setTimeout(() => {
+      const res = syncPartnerSpreadsheet();
+      setIsSyncing(false);
+      setSyncToast(res.message);
+      setTimeout(() => setSyncToast(null), 4000);
+    }, 600);
+  };
+
+  // Criação rápida de encomenda
+  const handleCreateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrderForm.customerName.trim()) return;
+
+    addOrder({
+      customerName: newOrderForm.customerName,
+      customerPhone: newOrderForm.customerPhone || 'Não informado',
+      scheduledDate: newOrderForm.scheduledDate,
+      scheduledTime: newOrderForm.scheduledTime,
+      deliveryType: 'pickup',
+      deliveryFee: 0,
+      totalAmount: Number(newOrderForm.totalAmount) || 150.0,
+      paymentMethod: 'pix',
+      paymentStatus: 'paid',
+      orderStatus: 'received',
+      source: newOrderForm.source,
+      notes: newOrderForm.notes,
+      items: [
+        {
+          id: `it-${Date.now()}`,
+          productId: 'prod-cento-tradicional',
+          productName: newOrderForm.productName,
+          quantity: 1,
+          unitPrice: Number(newOrderForm.totalAmount) || 150.0,
+          totalPrice: Number(newOrderForm.totalAmount) || 150.0,
+        },
+      ],
+    });
+
+    setIsAddModalOpen(false);
+    setSyncToast('Nova encomenda adicionada com sucesso!');
+    setTimeout(() => setSyncToast(null), 3000);
   };
 
   const nextStatusMap: Record<OrderStatus, OrderStatus | null> = {
@@ -90,237 +245,671 @@ export default function AdminEncomendasAgendaPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {syncToast && (
+        <div className="fixed top-6 right-6 z-50 px-4 py-3 rounded-2xl bg-[#2E1609] text-[#FAF7F3] shadow-2xl border border-[#C69255] text-xs font-semibold flex items-center gap-2.5 animate-bounce">
+          <CheckCircle2 className="w-4 h-4 text-[#C69255]" />
+          <span>{syncToast}</span>
+        </div>
+      )}
+
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#3D1F0D]">
-            Agenda e Calendário de Encomendas
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[#2E1609]">
+              Agenda & Calendário de Encomendas
+            </h1>
+            <span className="px-2.5 py-0.5 rounded-full bg-[#EFE4D8] text-[#5A3821] text-[10px] font-bold tracking-wider uppercase">
+              {preOrders.length} Encomendas
+            </span>
+          </div>
           <p className="text-xs sm:text-sm text-[#7A5A43] mt-1">
-            Planejamento diário e semanal da produção de doces de festa e bolos comemorativos.
+            Planejamento visual diário com sincronização direta da planilha Excel compartilhada pelo parceiro.
           </p>
         </div>
 
-        {/* WhatsApp API Status Badge */}
-        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#FAF7F3] border border-[#D5BFA8] text-xs font-semibold text-[#5A3821] self-start sm:self-auto">
-          <Send className="w-3.5 h-3.5 text-[#C69255]" />
-          <span>API WhatsApp: {settings.whatsappAutoNotify ? 'Notificações Ativas' : 'Manual'}</span>
-        </div>
-      </div>
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {/* View Mode Toggle */}
+          <div className="flex items-center rounded-xl bg-white border border-[#D5BFA8] p-1 shadow-2xs">
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'calendar'
+                  ? 'bg-[#2E1609] text-white shadow-xs'
+                  : 'text-[#6E4F38] hover:text-[#2E1609]'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Calendário</span>
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                viewMode === 'kanban'
+                  ? 'bg-[#2E1609] text-white shadow-xs'
+                  : 'text-[#6E4F38] hover:text-[#2E1609]'
+              }`}
+            >
+              <Columns3 className="w-3.5 h-3.5" />
+              <span>Kanban</span>
+            </button>
+          </div>
 
-      {/* Date Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-[#E8D5C4] shadow-2xs space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-[#3D1F0D] uppercase tracking-wider flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[#C69255]" />
-            <span>Filtrar por Data de Retirada da Encomenda</span>
-          </span>
-          <span className="text-xs text-[#7A5A43] font-medium">
-            {filteredOrders.length} encomenda(s) selecionada(s)
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {/* Sync Partner Spreadsheet */}
           <button
-            onClick={() => setSelectedDate('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
-              selectedDate === 'all'
-                ? 'bg-[#3D1F0D] text-[#FAF7F3]'
-                : 'bg-[#FAF7F3] hover:bg-[#EFE4D8] text-[#5A3821] border border-[#D5BFA8]'
-            }`}
+            onClick={handleSyncPartner}
+            disabled={isSyncing}
+            className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-[#7A4B1A] border border-amber-300 font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer"
+            title="Sincronizar dados da planilha Excel do parceiro"
           >
-            Todas as Datas ({preOrders.length})
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>Sincronizar Planilha ({partnerOrdersCount})</span>
           </button>
 
-          {availableDates.map((dateStr) => {
-            const count = preOrders.filter((o) => o.scheduledDate === dateStr).length;
-            const isSelected = selectedDate === dateStr;
-            const [y, m, d] = dateStr.split('-');
+          {/* Open OneDrive Link */}
+          {settings.partnerSpreadsheetUrl && (
+            <a
+              href={settings.partnerSpreadsheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 rounded-xl bg-white hover:bg-[#FAF7F3] border border-[#D5BFA8] text-[#5A3821] font-semibold text-xs flex items-center gap-1.5 transition-all"
+              title="Abrir a planilha original do parceiro no Excel Online"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Abrir Excel</span>
+              <ExternalLink className="w-3 h-3 text-[#8C6D53]" />
+            </a>
+          )}
 
-            return (
-              <button
-                key={dateStr}
-                onClick={() => setSelectedDate(dateStr)}
-                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-2 ${
-                  isSelected
-                    ? 'bg-[#3D1F0D] text-[#FAF7F3]'
-                    : 'bg-[#FAF7F3] hover:bg-[#EFE4D8] text-[#5A3821] border border-[#D5BFA8]'
-                }`}
-              >
-                <span>{`${d}/${m}/${y}`}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${isSelected ? 'bg-white/20' : 'bg-[#E8D5C4] text-[#3D1F0D]'}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
+          {/* New Order */}
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="px-4 py-2 rounded-xl bg-[#2E1609] hover:bg-[#1A0B03] text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nova Encomenda</span>
+          </button>
         </div>
       </div>
 
-      {/* Kanban das Encomendas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
-        {agendaColumns.map((col) => {
-          const colOrders = filteredOrders.filter((o) => o.orderStatus === col.id);
+      {/* Filter and Origin Badges */}
+      <div className="bg-white p-3.5 rounded-2xl border border-[#D5BFA8] shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-bold text-[#2E1609] uppercase tracking-wider text-[11px] mr-1">
+            Origem:
+          </span>
+          <button
+            onClick={() => setSourceFilter('all')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              sourceFilter === 'all'
+                ? 'bg-[#2E1609] text-white'
+                : 'bg-[#FAF7F3] text-[#6E4F38] hover:bg-[#EFE4D8]'
+            }`}
+          >
+            Todas as Encomendas ({orders.length})
+          </button>
+          <button
+            onClick={() => setSourceFilter('partner_excel')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              sourceFilter === 'partner_excel'
+                ? 'bg-amber-700 text-white'
+                : 'bg-amber-50 text-amber-900 border border-amber-200 hover:bg-amber-100'
+            }`}
+          >
+            <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+            <span>Planilha Parceiro ({partnerOrdersCount})</span>
+          </button>
+          <button
+            onClick={() => setSourceFilter('storefront')}
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
+              sourceFilter === 'storefront'
+                ? 'bg-[#3D1F0D] text-white'
+                : 'bg-[#FAF7F3] text-[#6E4F38] hover:bg-[#EFE4D8]'
+            }`}
+          >
+            Loja Online Oficial ({storefrontOrdersCount})
+          </button>
+        </div>
 
-          return (
-            <div
-              key={col.id}
-              className={`rounded-2xl border p-3 space-y-3 min-h-[480px] flex flex-col ${col.color}`}
+        {/* Legend */}
+        <div className="hidden sm:flex items-center gap-3 text-[11px] text-[#7A5A43]">
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-600" />
+            <span>Entregue / Pronto</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-amber-600" />
+            <span>Em Produção</span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-[#8C6D53]" />
+            <span>Agendado</span>
+          </span>
+        </div>
+      </div>
+
+      {/* ======================= CALENDAR VIEW ======================= */}
+      {viewMode === 'calendar' && (
+        <div className="bg-white rounded-3xl border border-[#D5BFA8] shadow-sm overflow-hidden space-y-0">
+          {/* Month Navigation Bar */}
+          <div className="p-4 sm:p-6 bg-[#FAF7F3] border-b border-[#E8D5C4] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handlePrevMonth}
+                className="w-9 h-9 rounded-xl bg-white hover:bg-[#EFE4D8] border border-[#D5BFA8] flex items-center justify-center text-[#2E1609] transition-colors cursor-pointer"
+                title="Mês Anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <h2 className="font-serif text-xl sm:text-2xl font-bold text-[#2E1609] min-w-48 text-center sm:text-left">
+                {monthNames[currentMonth]} {currentYear}
+              </h2>
+              <button
+                onClick={handleNextMonth}
+                className="w-9 h-9 rounded-xl bg-white hover:bg-[#EFE4D8] border border-[#D5BFA8] flex items-center justify-center text-[#2E1609] transition-colors cursor-pointer"
+                title="Próximo Mês"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <button
+              onClick={handleToday}
+              className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-[#EFE4D8] border border-[#D5BFA8] text-xs font-semibold text-[#5A3821] transition-colors cursor-pointer"
             >
-              {/* Header da Coluna */}
-              <div className="flex items-center justify-between px-1">
-                <h3 className="font-serif text-xs sm:text-sm font-bold text-[#3D1F0D]">
-                  {col.title}
-                </h3>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${col.badgeColor}`}>
-                  {colOrders.length}
-                </span>
+              Novembro Atual
+            </button>
+          </div>
+
+          {/* Weekday Headers */}
+          <div className="grid grid-cols-7 border-b border-[#E8D5C4] bg-[#F5EBE1] text-center py-2.5 text-[11px] font-bold text-[#6E4F38] uppercase tracking-wider">
+            {weekDays.map((w, idx) => (
+              <div key={idx} className={idx === 0 || idx === 6 ? 'text-amber-800' : ''}>
+                {w}
               </div>
+            ))}
+          </div>
 
-              {/* Cards */}
-              <div className="space-y-3 flex-1">
-                {colOrders.length === 0 ? (
-                  <div className="h-32 flex items-center justify-center text-xs text-[#A68F7B] italic">
-                    Nenhuma encomenda nesta etapa
+          {/* Calendar Grid Cells */}
+          <div className="grid grid-cols-7 auto-rows-fr divide-x divide-y divide-[#E8D5C4] min-h-[550px]">
+            {calendarGrid.map((cell, idx) => {
+              const isToday =
+                cell.dateStr === '2026-11-17' ||
+                cell.dateStr === new Date().toISOString().split('T')[0];
+
+              if (!cell.dayNumber) {
+                return (
+                  <div
+                    key={`empty-${idx}`}
+                    className="bg-[#FAF7F3]/40 min-h-[90px] p-1.5 sm:p-2 text-stone-300"
+                  />
+                );
+              }
+
+              return (
+                <div
+                  key={`day-${cell.dayNumber}`}
+                  className={`min-h-[110px] p-1.5 sm:p-2.5 flex flex-col justify-between transition-colors group ${
+                    isToday ? 'bg-amber-50/50' : 'bg-white hover:bg-[#FAF7F3]/60'
+                  }`}
+                >
+                  {/* Day Header */}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span
+                      className={`text-xs sm:text-sm font-bold rounded-lg w-7 h-7 flex items-center justify-center ${
+                        isToday
+                          ? 'bg-[#2E1609] text-white shadow-xs'
+                          : cell.orders.length > 0
+                          ? 'text-[#2E1609] font-extrabold'
+                          : 'text-[#8C6D53]'
+                      }`}
+                    >
+                      {String(cell.dayNumber).padStart(2, '0')}
+                    </span>
+
+                    {/* Quick Add on Date */}
+                    <button
+                      onClick={() => {
+                        setNewOrderForm((prev) => ({
+                          ...prev,
+                          scheduledDate: cell.dateStr || '2026-11-20',
+                        }));
+                        setIsAddModalOpen(true);
+                      }}
+                      className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded-md hover:bg-[#EFE4D8] text-[#7A5A43] flex items-center justify-center transition-opacity cursor-pointer"
+                      title={`Adicionar encomenda no dia ${cell.dayNumber}`}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
                   </div>
-                ) : (
-                  colOrders.map((order) => {
-                    const nextStatus = nextStatusMap[order.orderStatus];
-                    const prevStatus = prevStatusMap[order.orderStatus];
-                    const isNotifying = notifyingOrderId === order.id;
-                    const justNotified = notificationSuccess === order.id;
 
-                    return (
-                      <div
-                        key={order.id}
-                        className="p-4 rounded-xl bg-white border border-[#E8D5C4] shadow-xs hover:shadow-md transition-all space-y-3"
-                      >
-                        {/* Header do Pedido */}
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <span className="font-mono text-xs font-bold text-[#3D1F0D]">
-                              {order.orderNumber}
+                  {/* Day Orders Stack */}
+                  <div className="flex-1 space-y-1.5 overflow-hidden">
+                    {cell.orders.map((ord) => {
+                      const isPartner = ord.source === 'partner_excel';
+                      const isFinished = ord.orderStatus === 'finished';
+                      const isReady = ord.orderStatus === 'ready';
+                      const isPreparing = ord.orderStatus === 'preparing';
+
+                      const statusDot = isFinished
+                        ? 'bg-emerald-600'
+                        : isReady
+                        ? 'bg-blue-600'
+                        : isPreparing
+                        ? 'bg-amber-600'
+                        : 'bg-[#8C6D53]';
+
+                      return (
+                        <div
+                          key={ord.id}
+                          onClick={() => setSelectedOrderDetails(ord)}
+                          className={`p-1.5 rounded-xl border text-[10px] sm:text-[11px] leading-tight cursor-pointer transition-all hover:scale-102 hover:shadow-xs ${
+                            isPartner
+                              ? 'bg-amber-50 border-amber-200 text-amber-950'
+                              : 'bg-[#FAF7F3] border-[#D5BFA8] text-[#2E1609]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1 min-w-0">
+                            <span className="font-bold text-[#2E1609] truncate flex items-center gap-1 min-w-0 flex-1">
+                              <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot}`} />
+                              <span className="truncate">{ord.customerName}</span>
                             </span>
-                            <h4 className="font-serif text-sm font-bold text-[#3D1F0D]">
-                              {order.customerName}
-                            </h4>
-                          </div>
-                          <span className="text-xs font-bold text-[#C69255] font-sans">
-                            {formatCurrency(order.totalAmount)}
-                          </span>
-                        </div>
-
-                        {/* Data e Horário */}
-                        <div className="space-y-1 text-[11px] text-[#5A3821] border-y border-[#F2E8DF] py-2">
-                          <div className="flex items-center gap-1.5 font-semibold text-[#3D1F0D]">
-                            <Calendar className="w-3.5 h-3.5 text-[#C69255]" />
-                            <span>
-                              Retirada: {order.scheduledDate.split('-').reverse().join('/')} às {order.scheduledTime}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5 text-[#7A5A43]">
-                            <MapPin className="w-3.5 h-3.5 text-[#A68F7B]" />
-                            <span>{settings.address}</span>
-                          </div>
-                        </div>
-
-                        {/* Detalhes dos Doces ou Bolos */}
-                        <div className="space-y-1.5 text-xs">
-                          {order.items.map((item, idx) => (
-                            <div key={idx} className="leading-tight">
-                              <span className="font-semibold text-[#3D1F0D]">
-                                {item.quantity}x {item.productName}
+                            {isPartner && (
+                              <span className="text-[8px] px-1 py-0.2 rounded-sm bg-amber-200/90 font-bold text-amber-900 shrink-0">
+                                Planilha
                               </span>
+                            )}
+                          </div>
 
-                              {/* Detalhes de Doces de Festa */}
-                              {item.customDetails?.selectedFlavors && (
-                                <div className="text-[10px] text-[#6B4B35] pl-2 border-l border-[#C69255] mt-1 space-y-0.5">
-                                  <div className="font-bold text-[#3D1F0D]">Sabores Selecionados:</div>
-                                  {item.customDetails.selectedFlavors.map((flv, i) => (
-                                    <div key={i}>• {flv}</div>
-                                  ))}
-                                  {item.customDetails.wrapperType && (
-                                    <div className="text-[#A68F7B] mt-0.5">
-                                      Forminha: {item.customDetails.wrapperType}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                          <div className="text-[9px] text-[#7A5A43] truncate mt-0.5 font-sans">
+                            {ord.items[0]?.productName || ord.notes || 'Doces de Festa'}
+                          </div>
 
-                              {/* Detalhes de Bolo */}
-                              {item.customDetails?.size && (
-                                <div className="text-[10px] text-[#6B4B35] pl-2 border-l border-[#C69255] mt-1 space-y-0.5">
-                                  <div>Tamanho: {item.customDetails.size}</div>
-                                  {item.customDetails.dough && <div>Massa: {item.customDetails.dough}</div>}
-                                  {item.customDetails.fillings && (
-                                    <div>Recheios: {item.customDetails.fillings.join(' + ')}</div>
-                                  )}
-                                  {item.customDetails.cakeMessage && (
-                                    <div className="font-semibold text-[#3D1F0D]">
-                                      Escrita: "{item.customDetails.cakeMessage}"
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+                          <div className="flex items-center justify-between text-[9px] font-semibold text-[#5A3821] mt-1 pt-0.5 border-t border-black/5">
+                            <span>{formatCurrency(ord.totalAmount)}</span>
+                            <span className="opacity-75">{ord.scheduledTime}</span>
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-                        {/* Ações */}
-                        <div className="pt-2 border-t border-[#F2E8DF] flex items-center justify-between gap-1 text-xs">
-                          <div className="flex items-center gap-1">
+      {/* ======================= KANBAN VIEW ======================= */}
+      {viewMode === 'kanban' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {agendaColumns.map((col) => {
+            const columnOrders = preOrders.filter((o) => o.orderStatus === col.id);
+
+            return (
+              <div
+                key={col.id}
+                className="flex flex-col bg-white rounded-3xl border border-[#D5BFA8] shadow-2xs overflow-hidden"
+              >
+                {/* Column Header */}
+                <div className="p-4 border-b border-[#E8D5C4] flex items-center justify-between bg-[#FAF7F3]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-serif text-sm font-bold text-[#2E1609]">
+                      {col.title}
+                    </span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${col.badgeColor}`}>
+                    {columnOrders.length}
+                  </span>
+                </div>
+
+                {/* Orders List */}
+                <div className="p-3.5 flex-1 space-y-3 overflow-y-auto max-h-[700px] bg-[#FAF7F3]/30">
+                  {columnOrders.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-[#8C6D53] border-2 border-dashed border-[#E8D5C4] rounded-2xl">
+                      Nenhuma encomenda nesta etapa.
+                    </div>
+                  ) : (
+                    columnOrders.map((order) => {
+                      const nextStatus = nextStatusMap[order.orderStatus];
+                      const prevStatus = prevStatusMap[order.orderStatus];
+                      const isPartner = order.source === 'partner_excel';
+
+                      return (
+                        <div
+                          key={order.id}
+                          className={`p-4 rounded-2xl border shadow-2xs space-y-3 transition-all hover:shadow-xs ${
+                            isPartner
+                              ? 'bg-amber-50/70 border-amber-200'
+                              : 'bg-white border-[#D5BFA8]'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-[10px] font-bold text-[#7A5A43]">
+                                  {order.orderNumber}
+                                </span>
+                                {isPartner ? (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-amber-200 text-amber-900 text-[9px] font-bold">
+                                    Planilha Excel
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-stone-100 text-[#5A3821] text-[9px] font-bold">
+                                    Loja Oficial
+                                  </span>
+                                )}
+                              </div>
+                              <h4 className="font-serif text-sm font-bold text-[#2E1609] mt-0.5">
+                                {order.customerName}
+                              </h4>
+                            </div>
+
                             <button
                               onClick={() => setSelectedOrderForPrint(order)}
+                              className="p-1.5 rounded-lg hover:bg-[#EFE4D8] text-[#7A5A43] transition-colors"
                               title="Imprimir Ficha de Produção"
-                              className="p-1.5 rounded-lg bg-[#FAF7F3] hover:bg-[#EFE4D8] text-[#3D1F0D]"
                             >
                               <Printer className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => handleNotifyCustomer(order)}
-                              disabled={isNotifying}
-                              title="Disparar Notificação WhatsApp"
-                              className={`p-1.5 rounded-lg flex items-center gap-1 transition-colors ${
-                                justNotified
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-[#FAF7F3] hover:bg-[#EFE4D8] text-[#5A3821]'
-                              }`}
-                            >
-                              {justNotified ? <Check className="w-3.5 h-3.5" /> : <Send className="w-3.5 h-3.5" />}
-                            </button>
                           </div>
 
-                          <div className="flex items-center gap-1">
-                            {prevStatus && (
-                              <button
-                                onClick={() => updateOrderStatus(order.id, prevStatus)}
-                                className="p-1.5 rounded-lg bg-[#FAF7F3] text-[#7A5A43] hover:bg-[#EFE4D8]"
-                              >
-                                <ChevronLeft className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            {nextStatus && (
-                              <button
-                                onClick={() => updateOrderStatus(order.id, nextStatus)}
-                                className="px-2.5 py-1 rounded-lg bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] text-[11px] font-semibold flex items-center gap-1"
-                              >
-                                <span>Avançar</span>
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
+                          {/* Data de Retirada */}
+                          <div className="flex items-center gap-2 text-xs font-semibold text-[#5A3821] p-2 rounded-xl bg-white/80 border border-[#E8D5C4]">
+                            <CalendarIcon className="w-3.5 h-3.5 text-[#C69255]" />
+                            <span>
+                              {order.scheduledDate.split('-').reverse().join('/')} às {order.scheduledTime}
+                            </span>
+                          </div>
+
+                          {/* Resumo dos Itens */}
+                          <div className="space-y-1 text-xs text-[#2E1609]">
+                            {order.items.map((it, idx) => (
+                              <div key={idx} className="font-medium">
+                                • {it.quantity}x {it.productName}
+                              </div>
+                            ))}
+                            {order.notes && (
+                              <div className="text-[11px] text-[#7A5A43] bg-white p-2 rounded-lg border border-[#E8D5C4] italic mt-1.5">
+                                "{order.notes}"
+                              </div>
                             )}
                           </div>
+
+                          {/* Footer & Actions */}
+                          <div className="pt-2 border-t border-[#E8D5C4] flex items-center justify-between text-xs">
+                            <span className="font-serif font-bold text-sm text-[#2E1609]">
+                              {formatCurrency(order.totalAmount)}
+                            </span>
+
+                            <div className="flex items-center gap-1.5">
+                              {prevStatus && (
+                                <button
+                                  onClick={() => updateOrderStatus(order.id, prevStatus)}
+                                  className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                                  title="Voltar etapa"
+                                >
+                                  <ChevronLeft className="w-3 h-3" />
+                                </button>
+                              )}
+                              {nextStatus && (
+                                <button
+                                  onClick={() => updateOrderStatus(order.id, nextStatus)}
+                                  className="px-2.5 py-1 rounded-lg bg-[#2E1609] hover:bg-[#1A0B03] text-white text-[10px] font-semibold flex items-center gap-1 cursor-pointer"
+                                  title="Avançar etapa"
+                                >
+                                  <span>Avançar</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ======================= ORDER DETAILS MODAL ======================= */}
+      {selectedOrderDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1F1108]/60 backdrop-blur-xs">
+          <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5 border border-[#D5BFA8] text-xs">
+            <div className="flex items-center justify-between border-b border-[#E8D5C4] pb-3.5">
+              <div>
+                <span className="font-mono text-xs font-bold text-[#7A5A43]">
+                  {selectedOrderDetails.orderNumber}
+                </span>
+                <h3 className="font-serif text-lg sm:text-xl font-bold text-[#2E1609]">
+                  {selectedOrderDetails.customerName}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedOrderDetails(null)}
+                className="w-8 h-8 rounded-full hover:bg-[#EFE4D8] flex items-center justify-center text-[#7A5A43]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#FAF7F3] border border-[#E8D5C4]">
+              <div>
+                <span className="text-[#8C6D53] text-[10px] block">Data de Retirada:</span>
+                <span className="font-bold text-sm text-[#2E1609]">
+                  {selectedOrderDetails.scheduledDate.split('-').reverse().join('/')} às{' '}
+                  {selectedOrderDetails.scheduledTime}
+                </span>
+              </div>
+              <div>
+                <span className="text-[#8C6D53] text-[10px] block">Origem do Pedido:</span>
+                <span className="font-bold text-sm text-[#2E1609]">
+                  {selectedOrderDetails.source === 'partner_excel'
+                    ? 'Planilha Excel (Parceiro)'
+                    : 'Loja Online Oficial'}
+                </span>
+              </div>
+            </div>
+
+            {/* Itens */}
+            <div className="space-y-2">
+              <span className="font-bold text-xs uppercase tracking-wider text-[#6E4F38] block">
+                Itens da Encomenda
+              </span>
+              <div className="p-3.5 rounded-xl border border-[#E8D5C4] bg-white space-y-2">
+                {selectedOrderDetails.items.map((it, idx) => (
+                  <div key={idx} className="flex justify-between font-semibold text-xs">
+                    <span>{it.quantity}x {it.productName}</span>
+                    <span>{formatCurrency(it.totalPrice)}</span>
+                  </div>
+                ))}
+                {selectedOrderDetails.notes && (
+                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 text-xs">
+                    <strong>Observação do Parceiro:</strong> {selectedOrderDetails.notes}
+                  </div>
                 )}
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* Comanda / Ficha de Produção */}
+            {/* Status Change Buttons */}
+            <div className="space-y-2">
+              <span className="font-bold text-xs uppercase tracking-wider text-[#6E4F38] block">
+                Alterar Status de Produção
+              </span>
+              <div className="grid grid-cols-4 gap-2">
+                {agendaColumns.map((col) => (
+                  <button
+                    key={col.id}
+                    onClick={() => {
+                      updateOrderStatus(selectedOrderDetails.id, col.id);
+                      setSelectedOrderDetails((prev) => (prev ? { ...prev, orderStatus: col.id } : null));
+                    }}
+                    className={`p-2 rounded-xl text-[10px] font-bold text-center border transition-all cursor-pointer ${
+                      selectedOrderDetails.orderStatus === col.id
+                        ? 'bg-[#2E1609] text-white border-[#2E1609] shadow-xs'
+                        : 'bg-[#FAF7F3] hover:bg-[#EFE4D8] border-[#D5BFA8] text-[#5A3821]'
+                    }`}
+                  >
+                    {col.title.split(' ')[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="pt-3 border-t border-[#E8D5C4] flex items-center justify-between gap-3">
+              <div className="font-serif font-bold text-base text-[#2E1609]">
+                Total: {formatCurrency(selectedOrderDetails.totalAmount)}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setSelectedOrderForPrint(selectedOrderDetails);
+                    setSelectedOrderDetails(null);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#FAF7F3] border border-[#D5BFA8] text-[#2E1609] font-semibold text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Imprimir Ficha</span>
+                </button>
+                <button
+                  onClick={() => setSelectedOrderDetails(null)}
+                  className="px-4 py-2 rounded-xl bg-[#2E1609] text-white font-semibold text-xs cursor-pointer"
+                >
+                  Concluir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================= MODAL DE NOVA ENCOMENDA MANUAL ======================= */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1F1108]/60 backdrop-blur-xs">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-7 space-y-4 border border-[#D5BFA8] text-xs">
+            <div className="flex items-center justify-between border-b border-[#E8D5C4] pb-3">
+              <h3 className="font-serif text-lg font-bold text-[#2E1609]">
+                Cadastrar Encomenda na Agenda
+              </h3>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="w-7 h-7 rounded-full hover:bg-[#EFE4D8] flex items-center justify-center text-[#7A5A43]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateOrder} className="space-y-3.5">
+              <div>
+                <label className="block font-semibold text-[#2E1609] mb-1">Nome do Cliente / Evento</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Vanessa (Aniversário)"
+                  value={newOrderForm.customerName}
+                  onChange={(e) => setNewOrderForm({ ...newOrderForm, customerName: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#D5BFA8] focus:border-[#2E1609] outline-hidden font-medium"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#2E1609] mb-1">Data de Retirada</label>
+                  <input
+                    type="date"
+                    required
+                    value={newOrderForm.scheduledDate}
+                    onChange={(e) => setNewOrderForm({ ...newOrderForm, scheduledDate: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] focus:border-[#2E1609] outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#2E1609] mb-1">Horário</label>
+                  <input
+                    type="time"
+                    required
+                    value={newOrderForm.scheduledTime}
+                    onChange={(e) => setNewOrderForm({ ...newOrderForm, scheduledTime: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] focus:border-[#2E1609] outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-[#2E1609] mb-1">Valor Total (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={newOrderForm.totalAmount}
+                    onChange={(e) => setNewOrderForm({ ...newOrderForm, totalAmount: Number(e.target.value) })}
+                    className="w-full px-3.5 py-2 rounded-xl border border-[#D5BFA8] focus:border-[#2E1609] outline-hidden font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-[#2E1609] mb-1">Origem</label>
+                  <select
+                    value={newOrderForm.source}
+                    onChange={(e) => setNewOrderForm({ ...newOrderForm, source: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] bg-white focus:border-[#2E1609] outline-hidden"
+                  >
+                    <option value="partner_excel">Planilha Parceiro (Excel)</option>
+                    <option value="storefront">Loja Oficial</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#2E1609] mb-1">Descrição / Sabores</label>
+                <input
+                  type="text"
+                  placeholder="Ex: 120 UN doces de festa variados"
+                  value={newOrderForm.productName}
+                  onChange={(e) => setNewOrderForm({ ...newOrderForm, productName: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#D5BFA8] focus:border-[#2E1609] outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#2E1609] mb-1">Observações (opcional)</label>
+                <input
+                  type="text"
+                  placeholder="Ex: trocar ferrero por nesquik"
+                  value={newOrderForm.notes}
+                  onChange={(e) => setNewOrderForm({ ...newOrderForm, notes: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#D5BFA8] focus:border-[#2E1609] outline-hidden"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-[#E8D5C4] flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-[#2E1609] hover:bg-[#1A0B03] text-white font-semibold cursor-pointer"
+                >
+                  Salvar Encomenda
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================= IMPRESSÃO DE FICHA DE PRODUÇÃO ======================= */}
       {selectedOrderForPrint && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1F1108]/60 backdrop-blur-xs">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6 space-y-4 font-mono text-xs border border-[#D5BFA8]">
@@ -334,18 +923,23 @@ export default function AdminEncomendasAgendaPage() {
             <div className="text-center space-y-1">
               <div className="font-bold text-base">{settings.storeName.toUpperCase()}</div>
               <div>ENCOMENDA {selectedOrderForPrint.orderNumber}</div>
-              <div>{formatDateTime(selectedOrderForPrint.createdAt)}</div>
+              <div>ORIGEM: {selectedOrderForPrint.source === 'partner_excel' ? 'PLANILHA PARCEIRO (EXCEL)' : 'LOJA OFICIAL'}</div>
             </div>
 
             <div className="border-t border-dashed border-stone-300 pt-2 space-y-1">
               <div><strong>CLIENTE:</strong> {selectedOrderForPrint.customerName}</div>
-              <div><strong>WHATSAPP:</strong> {selectedOrderForPrint.customerPhone}</div>
+              <div><strong>CONTATO:</strong> {selectedOrderForPrint.customerPhone}</div>
               <div>
                 <strong>DATA DE RETIRADA:</strong>{' '}
                 {selectedOrderForPrint.scheduledDate.split('-').reverse().join('/')} às{' '}
                 {selectedOrderForPrint.scheduledTime}
               </div>
-              <div><strong>LOCAL:</strong> {settings.address}</div>
+              <div>
+                <strong>LOCAL:</strong>{' '}
+                {settings.showExactAddressPublicly
+                  ? settings.address
+                  : 'Ateliê em Maringá - PR (Endereço enviado na confirmação)'}
+              </div>
             </div>
 
             <div className="border-t border-dashed border-stone-300 pt-2 space-y-2">
@@ -363,13 +957,13 @@ export default function AdminEncomendasAgendaPage() {
                       ))}
                     </div>
                   )}
-                  {i.customDetails?.cakeMessage && (
-                    <div className="text-[10px] font-bold pl-2">
-                      ESCRITA: "{i.customDetails.cakeMessage}"
-                    </div>
-                  )}
                 </div>
               ))}
+              {selectedOrderForPrint.notes && (
+                <div className="text-[10px] bg-stone-100 p-2 rounded">
+                  <strong>OBSERVAÇÕES:</strong> {selectedOrderForPrint.notes}
+                </div>
+              )}
             </div>
 
             <div className="border-t border-dashed border-stone-300 pt-2 flex justify-between font-bold text-sm">
@@ -380,14 +974,14 @@ export default function AdminEncomendasAgendaPage() {
             <div className="pt-3 flex gap-2">
               <button
                 onClick={() => window.print()}
-                className="flex-1 py-2 rounded-xl bg-[#3D1F0D] text-white font-sans text-xs font-semibold flex items-center justify-center gap-1.5"
+                className="flex-1 py-2 rounded-xl bg-[#2E1609] text-white font-sans text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>Imprimir Ficha</span>
               </button>
               <button
                 onClick={() => setSelectedOrderForPrint(null)}
-                className="px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-sans text-xs font-semibold"
+                className="px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-sans text-xs font-semibold cursor-pointer"
               >
                 Fechar
               </button>

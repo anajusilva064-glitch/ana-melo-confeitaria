@@ -45,7 +45,11 @@ export default function Footer() {
             <ul className="space-y-2.5 text-xs text-[#B59F8B]">
               <li className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-[#C69255] shrink-0 mt-0.5" />
-                <span>{settings.address}</span>
+                <span>
+                  {settings.showExactAddressPublicly
+                    ? settings.address
+                    : (settings.publicAddressText || 'Ateliê em Maringá - PR (Endereço para retirada enviado na confirmação)')}
+                </span>
               </li>
               <li className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-[#C69255] shrink-0" />

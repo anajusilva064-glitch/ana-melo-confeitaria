@@ -135,7 +135,9 @@ export default function Home() {
                         {settings.storeName}
                       </h2>
                       <p className="text-xs text-[#7A5A43] font-medium">
-                        {settings.address}
+                        {settings.showExactAddressPublicly
+                          ? settings.address
+                          : (settings.publicAddressText || 'Ateliê em Maringá - PR (Retirada agendada)')}
                       </p>
                       <p className="text-xs font-semibold text-[#C69255]">
                         WhatsApp: {settings.whatsapp}
@@ -318,7 +320,7 @@ export default function Home() {
                   Retirada no Ateliê
                 </h4>
                 <p className="text-xs text-[#7A5A43] leading-relaxed">
-                  No dia marcado, sua encomenda estará fresca e embalada na Rua Marcio Bacaraim Possebom 2082.
+                  No dia marcado, sua encomenda estará fresca e embalada para retirada no ateliê em Maringá - PR.
                 </p>
               </div>
             </div>

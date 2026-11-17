@@ -91,6 +91,7 @@ export type Order = {
   customerName: string;
   customerPhone: string;
   isPreOrder?: boolean; // se é encomenda agendada ou pronta entrega imediata
+  source?: 'storefront' | 'partner_excel' | 'direct_whatsapp';
   deliveryType: DeliveryType;
   deliveryAddress?: string;
   deliveryNeighborhood?: string;
@@ -104,6 +105,11 @@ export type Order = {
   orderStatus: OrderStatus;
   notes?: string;
   createdAt: string;
+  partnerInfo?: {
+    eventName?: string;
+    packageType?: string;
+    rawText?: string;
+  };
 };
 
 export type TransactionType = 'income' | 'expense';
@@ -125,6 +131,9 @@ export type StoreSettings = {
   instagram: string;
   instagramUrl: string;
   address: string;
+  isResidential: boolean;
+  showExactAddressPublicly: boolean;
+  publicAddressText: string;
   pixKey: string;
   pixKeyType: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
   pixReceiverName: string;
@@ -134,6 +143,10 @@ export type StoreSettings = {
   minNoticeHoursCustom: number;
   businessHours: string;
   isOpen: boolean;
+
+  // Planilha de Encomendas do Parceiro (Excel / OneDrive)
+  partnerSpreadsheetUrl: string;
+  partnerSyncEnabled: boolean;
 
   // Integração com API do WhatsApp (Evolution API / Z-API / Baileys / Twilio)
   whatsappApiUrl?: string;

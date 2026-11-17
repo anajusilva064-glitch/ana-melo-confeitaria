@@ -48,11 +48,12 @@ type StoreContextType = {
   deleteIngredient: (id: string) => void;
   adjustStock: (id: string, deltaQuantity: number, reason: string) => void;
 
-  // Pedidos & Kanban
+  // Pedidos & Kanban & Calendário
   orders: Order[];
   addOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => Order;
   updateOrderStatus: (id: string, status: OrderStatus) => void;
   deleteOrder: (id: string) => void;
+  syncPartnerSpreadsheet: () => { success: boolean; count: number; message: string };
 
   // Financeiro
   transactions: FinancialTransaction[];
@@ -105,49 +106,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         try { localStorage.removeItem(k); } catch {}
       });
 
-      const savedSettings = localStorage.getItem('ana_melo_settings_v4');
+      const savedSettings = localStorage.getItem('ana_melo_settings_v5');
       if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
       } else {
         setSettings(initialSettings);
       }
 
-      const savedCategories = localStorage.getItem('ana_melo_categories_v4');
+      const savedCategories = localStorage.getItem('ana_melo_categories_v5');
       if (savedCategories) {
         setCategories(JSON.parse(savedCategories));
       } else {
         setCategories(initialCategories);
       }
 
-      const savedProducts = localStorage.getItem('ana_melo_products_v4');
+      const savedProducts = localStorage.getItem('ana_melo_products_v5');
       if (savedProducts) {
         setProducts(JSON.parse(savedProducts));
       } else {
         setProducts(initialProducts);
       }
 
-      const savedCustomOptions = localStorage.getItem('ana_melo_custom_options_v4');
+      const savedCustomOptions = localStorage.getItem('ana_melo_custom_options_v5');
       if (savedCustomOptions) {
         setCustomOptions(JSON.parse(savedCustomOptions));
       } else {
         setCustomOptions(initialCustomOptions);
       }
 
-      const savedIngredients = localStorage.getItem('ana_melo_ingredients_v4');
+      const savedIngredients = localStorage.getItem('ana_melo_ingredients_v5');
       if (savedIngredients) {
         setIngredients(JSON.parse(savedIngredients));
       } else {
         setIngredients(initialIngredients);
       }
 
-      const savedOrders = localStorage.getItem('ana_melo_orders_v4');
+      const savedOrders = localStorage.getItem('ana_melo_orders_v5');
       if (savedOrders) {
         setOrders(JSON.parse(savedOrders));
       } else {
         setOrders(initialOrders);
       }
 
-      const savedTransactions = localStorage.getItem('ana_melo_transactions_v4');
+      const savedTransactions = localStorage.getItem('ana_melo_transactions_v5');
       if (savedTransactions) {
         setTransactions(JSON.parse(savedTransactions));
       } else {
@@ -164,37 +165,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Salvar no localStorage sempre que houver alterações
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_settings_v4', JSON.stringify(settings));
+    localStorage.setItem('ana_melo_settings_v5', JSON.stringify(settings));
   }, [settings, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_categories_v4', JSON.stringify(categories));
+    localStorage.setItem('ana_melo_categories_v5', JSON.stringify(categories));
   }, [categories, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_products_v4', JSON.stringify(products));
+    localStorage.setItem('ana_melo_products_v5', JSON.stringify(products));
   }, [products, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_custom_options_v4', JSON.stringify(customOptions));
+    localStorage.setItem('ana_melo_custom_options_v5', JSON.stringify(customOptions));
   }, [customOptions, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_ingredients_v4', JSON.stringify(ingredients));
+    localStorage.setItem('ana_melo_ingredients_v5', JSON.stringify(ingredients));
   }, [ingredients, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_orders_v4', JSON.stringify(orders));
+    localStorage.setItem('ana_melo_orders_v5', JSON.stringify(orders));
   }, [orders, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_transactions_v4', JSON.stringify(transactions));
+    localStorage.setItem('ana_melo_transactions_v5', JSON.stringify(transactions));
   }, [transactions, isClient]);
 
   useEffect(() => {
@@ -352,6 +353,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setOrders((prev) => prev.filter((o) => o.id !== id));
   };
 
+  const syncPartnerSpreadsheet = () => {
+    // Sincroniza encomendas da planilha compartilhada do parceiro sem duplicar
+    const partnerOrders = initialOrders.filter((o) => o.source === 'partner_excel');
+    const partnerIds = new Set(partnerOrders.map((o) => o.id));
+
+    setOrders((prev) => {
+      const nonPartnerOrders = prev.filter((o) => !partnerIds.has(o.id) && o.source !== 'partner_excel');
+      return [...partnerOrders, ...nonPartnerOrders];
+    });
+
+    return {
+      success: true,
+      count: partnerOrders.length,
+      message: `${partnerOrders.length} encomendas da planilha do parceiro sincronizadas com o calendário!`,
+    };
+  };
+
   // Funções de Transações Financeiras
   const addTransaction = (tx: Omit<FinancialTransaction, 'id'>) => {
     const newTx: FinancialTransaction = { ...tx, id: `tr-${Date.now()}` };
@@ -424,6 +442,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addOrder,
         updateOrderStatus,
         deleteOrder,
+        syncPartnerSpreadsheet,
         transactions,
         addTransaction,
         deleteTransaction,

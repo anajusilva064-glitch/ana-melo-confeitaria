@@ -81,7 +81,10 @@ export default function CartDrawer() {
     msg += `*Cliente:* ${customerName}\n`;
     msg += `*Telefone:* ${customerPhone}\n`;
     msg += `*Data de Retirada:* ${scheduledDate.split('-').reverse().join('/')} às ${scheduledTime}\n`;
-    msg += `*Local de Retirada:* ${settings.address}\n\n`;
+    const pickupLocation = settings.showExactAddressPublicly
+      ? settings.address
+      : (settings.publicAddressText || 'Ateliê em Maringá - PR (Endereço para retirada enviado na confirmação)');
+    msg += `*Local de Retirada:* ${pickupLocation}\n\n`;
 
     msg += `*ITENS DA ENCOMENDA:*\n`;
     cart.forEach((item, idx) => {
@@ -262,7 +265,10 @@ export default function CartDrawer() {
             <div className="p-3.5 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] flex items-start gap-2.5">
               <MapPin className="w-4 h-4 text-[#C69255] shrink-0 mt-0.5" />
               <div className="text-[11px] text-[#5A3821] leading-relaxed">
-                <strong>Retirada no Ateliê:</strong> {settings.address}
+                <strong>Retirada no Ateliê:</strong>{' '}
+                {settings.showExactAddressPublicly
+                  ? settings.address
+                  : (settings.publicAddressText || 'Maringá - PR (Endereço completo enviado na confirmação)')}
               </div>
             </div>
 
