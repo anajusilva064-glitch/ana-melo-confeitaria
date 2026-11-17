@@ -1,0 +1,413 @@
+'use client';
+
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import {
+  Category,
+  Product,
+  CustomOrderOption,
+  Ingredient,
+  Order,
+  OrderItem,
+  OrderStatus,
+  FinancialTransaction,
+  StoreSettings,
+} from '@/types';
+import {
+  initialCategories,
+  initialProducts,
+  initialCustomOptions,
+  initialIngredients,
+  initialOrders,
+  initialTransactions,
+  initialSettings,
+} from '@/lib/mock-data';
+
+type StoreContextType = {
+  // Dados do Cardápio & Loja
+  settings: StoreSettings;
+  updateSettings: (newSettings: Partial<StoreSettings>) => void;
+  categories: Category[];
+  addCategory: (category: Omit<Category, 'id'>) => void;
+  updateCategory: (id: string, updates: Partial<Category>) => void;
+  deleteCategory: (id: string) => void;
+  products: Product[];
+  addProduct: (product: Omit<Product, 'id'>) => void;
+  updateProduct: (id: string, updates: Partial<Product>) => void;
+  deleteProduct: (id: string) => void;
+
+  // Opções de Encomenda Personalizada
+  customOptions: CustomOrderOption[];
+  addCustomOption: (opt: Omit<CustomOrderOption, 'id'>) => void;
+  updateCustomOption: (id: string, updates: Partial<CustomOrderOption>) => void;
+  deleteCustomOption: (id: string) => void;
+
+  // Estoque & Insumos
+  ingredients: Ingredient[];
+  addIngredient: (ing: Omit<Ingredient, 'id' | 'costPerUnit'>) => void;
+  updateIngredient: (id: string, updates: Partial<Ingredient>) => void;
+  deleteIngredient: (id: string) => void;
+  adjustStock: (id: string, deltaQuantity: number, reason: string) => void;
+
+  // Pedidos & Kanban
+  orders: Order[];
+  addOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => Order;
+  updateOrderStatus: (id: string, status: OrderStatus) => void;
+  deleteOrder: (id: string) => void;
+
+  // Financeiro
+  transactions: FinancialTransaction[];
+  addTransaction: (tx: Omit<FinancialTransaction, 'id'>) => void;
+  deleteTransaction: (id: string) => void;
+
+  // Carrinho do Cliente
+  cart: OrderItem[];
+  addToCart: (item: Omit<OrderItem, 'id'>) => void;
+  removeFromCart: (itemId: string) => void;
+  updateCartQuantity: (itemId: string, qty: number) => void;
+  clearCart: () => void;
+  cartTotal: number;
+  isCartOpen: boolean;
+  setIsCartOpen: (open: boolean) => void;
+
+  // Modal de Montador de Encomenda
+  isCustomModalOpen: boolean;
+  setIsCustomModalOpen: (open: boolean) => void;
+  customizingProduct: Product | null;
+  openCustomizer: (product: Product) => void;
+};
+
+const StoreContext = createContext<StoreContextType | undefined>(undefined);
+
+export function StoreProvider({ children }: { children: ReactNode }) {
+  // Carregar do localStorage ou usar mock inicial
+  const [isClient, setIsClient] = useState(false);
+
+  const [settings, setSettings] = useState<StoreSettings>(initialSettings);
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [customOptions, setCustomOptions] = useState<CustomOrderOption[]>(initialCustomOptions);
+  const [ingredients, setIngredients] = useState<Ingredient[]>(initialIngredients);
+  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [transactions, setTransactions] = useState<FinancialTransaction[]>(initialTransactions);
+
+  // Carrinho e Modais
+  const [cart, setCart] = useState<OrderItem[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
+  const [customizingProduct, setCustomizingProduct] = useState<Product | null>(null);
+
+  useEffect(() => {
+    setIsClient(true);
+    try {
+      const savedSettings = localStorage.getItem('ana_melo_settings');
+      if (savedSettings) setSettings(JSON.parse(savedSettings));
+
+      const savedCategories = localStorage.getItem('ana_melo_categories');
+      if (savedCategories) setCategories(JSON.parse(savedCategories));
+
+      const savedProducts = localStorage.getItem('ana_melo_products');
+      if (savedProducts) setProducts(JSON.parse(savedProducts));
+
+      const savedCustomOptions = localStorage.getItem('ana_melo_custom_options');
+      if (savedCustomOptions) setCustomOptions(JSON.parse(savedCustomOptions));
+
+      const savedIngredients = localStorage.getItem('ana_melo_ingredients');
+      if (savedIngredients) setIngredients(JSON.parse(savedIngredients));
+
+      const savedOrders = localStorage.getItem('ana_melo_orders');
+      if (savedOrders) setOrders(JSON.parse(savedOrders));
+
+      const savedTransactions = localStorage.getItem('ana_melo_transactions');
+      if (savedTransactions) setTransactions(JSON.parse(savedTransactions));
+
+      const savedCart = localStorage.getItem('ana_melo_cart');
+      if (savedCart) setCart(JSON.parse(savedCart));
+    } catch (e) {
+      console.warn('Erro ao carregar localStorage:', e);
+    }
+  }, []);
+
+  // Salvar no localStorage sempre que houver alterações
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('ana_melo_settings', JSON.stringify(settings));
+  }, [settings, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('ana_melo_categories', JSON.stringify(categories));
+  }, [categories, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('ana_melo_products', JSON.stringify(products));
+  }, [products, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('ana_melo_custom_options', JSON.stringify(customOptions));
+  }, [customOptions, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('ana_melo_ingredients', JSON.stringify(ingredients));
+  }, [ingredients, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('ana_melo_orders', JSON.stringify(orders));
+  }, [orders, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('ana_melo_transactions', JSON.stringify(transactions));
+  }, [transactions, isClient]);
+
+  useEffect(() => {
+    if (!isClient) return;
+    localStorage.setItem('ana_melo_cart', JSON.stringify(cart));
+  }, [cart, isClient]);
+
+  // Funções de Settings
+  const updateSettings = (newSettings: Partial<StoreSettings>) => {
+    setSettings((prev) => ({ ...prev, ...newSettings }));
+  };
+
+  // Funções de Categorias
+  const addCategory = (category: Omit<Category, 'id'>) => {
+    const newCat: Category = { ...category, id: `cat-${Date.now()}` };
+    setCategories((prev) => [...prev, newCat]);
+  };
+
+  const updateCategory = (id: string, updates: Partial<Category>) => {
+    setCategories((prev) => prev.map((cat) => (cat.id === id ? { ...cat, ...updates } : cat)));
+  };
+
+  const deleteCategory = (id: string) => {
+    setCategories((prev) => prev.filter((cat) => cat.id !== id));
+  };
+
+  // Funções de Produtos
+  const addProduct = (product: Omit<Product, 'id'>) => {
+    const newProd: Product = { ...product, id: `prod-${Date.now()}` };
+    setProducts((prev) => [newProd, ...prev]);
+  };
+
+  const updateProduct = (id: string, updates: Partial<Product>) => {
+    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...updates } : p)));
+  };
+
+  const deleteProduct = (id: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // Funções de Opções de Encomenda
+  const addCustomOption = (opt: Omit<CustomOrderOption, 'id'>) => {
+    const newOpt: CustomOrderOption = { ...opt, id: `opt-${Date.now()}` };
+    setCustomOptions((prev) => [...prev, newOpt]);
+  };
+
+  const updateCustomOption = (id: string, updates: Partial<CustomOrderOption>) => {
+    setCustomOptions((prev) => prev.map((o) => (o.id === id ? { ...o, ...updates } : o)));
+  };
+
+  const deleteCustomOption = (id: string) => {
+    setCustomOptions((prev) => prev.filter((o) => o.id !== id));
+  };
+
+  // Funções de Insumos & Estoque
+  const addIngredient = (ing: Omit<Ingredient, 'id' | 'costPerUnit'>) => {
+    const costPerUnit = ing.packageQuantity > 0 ? ing.packageCost / ing.packageQuantity : 0;
+    const newIng: Ingredient = { ...ing, id: `ing-${Date.now()}`, costPerUnit };
+    setIngredients((prev) => [...prev, newIng]);
+  };
+
+  const updateIngredient = (id: string, updates: Partial<Ingredient>) => {
+    setIngredients((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i;
+        const updated = { ...i, ...updates };
+        updated.costPerUnit = updated.packageQuantity > 0 ? updated.packageCost / updated.packageQuantity : 0;
+        return updated;
+      })
+    );
+  };
+
+  const deleteIngredient = (id: string) => {
+    setIngredients((prev) => prev.filter((i) => i.id !== id));
+  };
+
+  const adjustStock = (id: string, deltaQuantity: number, reason: string) => {
+    setIngredients((prev) =>
+      prev.map((i) => {
+        if (i.id !== id) return i;
+        const newStock = Math.max(0, i.currentStock + deltaQuantity);
+        return { ...i, currentStock: newStock };
+      })
+    );
+
+    // Se for compra de reposição (delta positivo), registra despesa financeira automática
+    if (deltaQuantity > 0) {
+      const ing = ingredients.find((i) => i.id === id);
+      if (ing) {
+        const cost = deltaQuantity * ing.costPerUnit;
+        addTransaction({
+          type: 'expense',
+          category: 'Insumos & Reposição',
+          description: `Reposição de ${deltaQuantity}${ing.unit} de ${ing.name} (${reason})`,
+          amount: cost,
+          date: new Date().toISOString(),
+        });
+      }
+    }
+  };
+
+  // Funções de Pedidos (Kanban)
+  const addOrder = (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>): Order => {
+    const nextNumber = orders.length > 0 ? Math.max(...orders.map((o) => parseInt(o.orderNumber.replace(/\D/g, '') || '100', 10))) + 1 : 101;
+    const newOrder: Order = {
+      ...orderData,
+      id: `ord-${Date.now()}`,
+      orderNumber: `#${nextNumber}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    setOrders((prev) => [newOrder, ...prev]);
+
+    // Registrar no financeiro se já estiver pago
+    if (newOrder.paymentStatus === 'paid') {
+      addTransaction({
+        type: 'income',
+        category: 'Vendas de Pedidos',
+        description: `Pedido ${newOrder.orderNumber} - ${newOrder.customerName}`,
+        amount: newOrder.totalAmount,
+        date: new Date().toISOString(),
+        relatedOrderId: newOrder.id,
+      });
+    }
+
+    // Tocar som de novo pedido se suportado
+    try {
+      if (typeof window !== 'undefined' && 'Audio' in window) {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(() => {});
+      }
+    } catch {}
+
+    return newOrder;
+  };
+
+  const updateOrderStatus = (id: string, status: OrderStatus) => {
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id !== id) return o;
+        return { ...o, orderStatus: status };
+      })
+    );
+  };
+
+  const deleteOrder = (id: string) => {
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  };
+
+  // Funções de Transações Financeiras
+  const addTransaction = (tx: Omit<FinancialTransaction, 'id'>) => {
+    const newTx: FinancialTransaction = { ...tx, id: `tr-${Date.now()}` };
+    setTransactions((prev) => [newTx, ...prev]);
+  };
+
+  const deleteTransaction = (id: string) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Funções do Carrinho
+  const addToCart = (item: Omit<OrderItem, 'id'>) => {
+    const newItem: OrderItem = { ...item, id: `cart-${Date.now()}-${Math.random().toString(36).substr(2, 4)}` };
+    setCart((prev) => [...prev, newItem]);
+    setIsCartOpen(true);
+  };
+
+  const removeFromCart = (itemId: string) => {
+    setCart((prev) => prev.filter((i) => i.id !== itemId));
+  };
+
+  const updateCartQuantity = (itemId: string, qty: number) => {
+    if (qty <= 0) {
+      removeFromCart(itemId);
+      return;
+    }
+    setCart((prev) =>
+      prev.map((i) => {
+        if (i.id !== itemId) return i;
+        return { ...i, quantity: qty, totalPrice: i.unitPrice * qty };
+      })
+    );
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  const cartTotal = cart.reduce((sum, item) => sum + item.totalPrice, 0);
+
+  // Modal Customizador
+  const openCustomizer = (product: Product) => {
+    setCustomizingProduct(product);
+    setIsCustomModalOpen(true);
+  };
+
+  return (
+    <StoreContext.Provider
+      value={{
+        settings,
+        updateSettings,
+        categories,
+        addCategory,
+        updateCategory,
+        deleteCategory,
+        products,
+        addProduct,
+        updateProduct,
+        deleteProduct,
+        customOptions,
+        addCustomOption,
+        updateCustomOption,
+        deleteCustomOption,
+        ingredients,
+        addIngredient,
+        updateIngredient,
+        deleteIngredient,
+        adjustStock,
+        orders,
+        addOrder,
+        updateOrderStatus,
+        deleteOrder,
+        transactions,
+        addTransaction,
+        deleteTransaction,
+        cart,
+        addToCart,
+        removeFromCart,
+        updateCartQuantity,
+        clearCart,
+        cartTotal,
+        isCartOpen,
+        setIsCartOpen,
+        isCustomModalOpen,
+        setIsCustomModalOpen,
+        customizingProduct,
+        openCustomizer,
+      }}
+    >
+      {children}
+    </StoreContext.Provider>
+  );
+}
+
+export function useStore() {
+  const context = useContext(StoreContext);
+  if (!context) {
+    throw new Error('useStore deve ser usado dentro de um StoreProvider');
+  }
+  return context;
+}
