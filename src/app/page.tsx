@@ -29,8 +29,15 @@ export default function Home() {
     return p.categoryId === activeCategoryId;
   });
 
-  const sweetsProduct = products.find((p) => p.productType === 'sweets' && p.isCustomOrder);
-  const cakeProduct = products.find((p) => p.productType === 'cake' && p.isCustomOrder);
+  const sweetsProduct =
+    products.find((p) => p.productType === 'sweets' && p.isCustomOrder) ||
+    products.find((p) => p.name.toLowerCase().includes('cento') || p.name.toLowerCase().includes('doce')) ||
+    products[0];
+
+  const cakeProduct =
+    products.find((p) => p.productType === 'cake' && p.isCustomOrder) ||
+    products.find((p) => p.name.toLowerCase().includes('bolo')) ||
+    products[1];
 
   return (
     <div className="min-h-screen flex flex-col bg-[#FAF7F3] text-[#2E1609] selection:bg-[#C69255] selection:text-white">
