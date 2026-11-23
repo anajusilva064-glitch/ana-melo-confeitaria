@@ -148,7 +148,7 @@ export default function CartDrawer() {
         pixPayload = generatePixPayload({
           pixKey: settings.pixKey,
           merchantName: settings.pixReceiverName || 'Ana Melo',
-          merchantCity: settings.pixCity || 'MARINGA',
+          merchantCity: settings.pixCity || 'UMUARAMA',
           amount: amountToPayNow,
           txId: tempOrderNum.replace('-', ''),
         });
@@ -200,7 +200,7 @@ export default function CartDrawer() {
 
       const pickupLocation = settings.showExactAddressPublicly
         ? settings.address
-        : (settings.publicAddressText || 'Ateliê em Maringá - PR (Endereço para retirada enviado na confirmação)');
+        : (settings.publicAddressText || 'Ateliê em Umuarama - PR (Endereço para retirada enviado na confirmação)');
       msg += `*Local de Retirada:* ${pickupLocation}\n\n`;
 
       msg += `*ITENS DA ENCOMENDA:*\n`;
@@ -387,7 +387,7 @@ export default function CartDrawer() {
                     </button>
                   </div>
                   <p className="text-[10px] text-[#7A5A43] pt-1">
-                    Titular: <strong>{settings.pixReceiverName}</strong> • Maringá - PR
+                    Titular: <strong>{settings.pixReceiverName}</strong> • Umuarama - PR
                   </p>
                 </div>
               </div>
@@ -549,7 +549,7 @@ export default function CartDrawer() {
                 <strong>Retirada no Ateliê:</strong>{' '}
                 {settings.showExactAddressPublicly
                   ? settings.address
-                  : (settings.publicAddressText || 'Maringá - PR (Endereço completo para retirada enviado na confirmação)')}
+                  : (settings.publicAddressText || 'Umuarama - PR (Endereço completo para retirada enviado na confirmação)')}
               </div>
             </div>
 

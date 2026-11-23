@@ -55,7 +55,7 @@ export default function Home() {
               <div className="lg:col-span-7 space-y-7 text-center lg:text-left">
                 <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/90 border border-[#D5BFA8]/80 text-[#6E4F38] text-xs font-semibold tracking-wide shadow-2xs backdrop-blur-md">
                   <span className="w-2 h-2 rounded-full bg-[#C69255] animate-pulse" />
-                  <span>Confeitaria Artesanal • Maringá - PR</span>
+                  <span>Confeitaria Artesanal • Umuarama - PR</span>
                 </div>
 
                 <h1 className="font-serif text-4xl sm:text-6xl lg:text-7xl font-bold text-[#2E1609] tracking-tight leading-[1.12]">
@@ -137,7 +137,7 @@ export default function Home() {
                       <p className="text-xs text-[#7A5A43] font-medium">
                         {settings.showExactAddressPublicly
                           ? settings.address
-                          : (settings.publicAddressText || 'Ateliê em Maringá - PR (Retirada agendada)')}
+                          : (settings.publicAddressText || 'Ateliê em Umuarama - PR (Retirada agendada)')}
                       </p>
                       <p className="text-xs font-semibold text-[#C69255]">
                         WhatsApp: {settings.whatsapp}
@@ -320,7 +320,7 @@ export default function Home() {
                   Retirada no Ateliê
                 </h4>
                 <p className="text-xs text-[#7A5A43] leading-relaxed">
-                  No dia marcado, sua encomenda estará fresca e embalada para retirada no ateliê em Maringá - PR.
+                  No dia marcado, sua encomenda estará fresca e embalada para retirada no ateliê em Umuarama - PR.
                 </p>
               </div>
             </div>

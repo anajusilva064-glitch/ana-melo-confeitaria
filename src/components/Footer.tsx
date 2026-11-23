@@ -48,7 +48,7 @@ export default function Footer() {
                 <span>
                   {settings.showExactAddressPublicly
                     ? settings.address
-                    : (settings.publicAddressText || 'Ateliê em Maringá - PR (Endereço para retirada enviado na confirmação)')}
+                    : (settings.publicAddressText || 'Ateliê em Umuarama - PR (Endereço para retirada enviado na confirmação)')}
                 </span>
               </li>
               <li className="flex items-center gap-2.5">
@@ -114,7 +114,7 @@ export default function Footer() {
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between text-xs text-[#8A725E] gap-4">
           <p>© 2026 {settings.storeName}. Todos os direitos reservados.</p>
           <p>
-            Retiradas com agendamento prévio no ateliê em Maringá - PR.
+            Retiradas com agendamento prévio no ateliê em Umuarama - PR.
           </p>
         </div>
       </div>

@@ -17,11 +17,11 @@ export const initialSettings: StoreSettings = {
   address: 'Rua Marcio Bacaraim Possebom 2082',
   isResidential: true,
   showExactAddressPublicly: false,
-  publicAddressText: 'Ateliê em Maringá - PR (Endereço para retirada enviado na confirmação do pedido)',
+  publicAddressText: 'Ateliê em Umuarama - PR (Endereço para retirada enviado na confirmação do pedido)',
   pixKey: '44999739472',
   pixKeyType: 'phone',
   pixReceiverName: 'Ana Melo',
-  pixCity: 'MARINGA',
+  pixCity: 'UMUARAMA',
 
   // Pagamento Cartão (Link Direto)
   enableCardPayment: true,
@@ -43,7 +43,7 @@ export const initialSettings: StoreSettings = {
   freeDeliveryMinAmount: 0,
   minNoticeHoursReady: 2,
   minNoticeHoursCustom: 48,
-  businessHours: 'Produções sob encomenda com retirada agendada no ateliê em Maringá - PR.',
+  businessHours: 'Produções sob encomenda com retirada agendada no ateliê em Umuarama - PR.',
   isOpen: true,
   whatsappAutoNotify: true,
   partnerSpreadsheetUrl: 'https://1drv.ms/x/c/1dcf1d98d91734e3/IQD6LZZ9z3GgRo6JIjmZgIO-Aa5LkiAyDBoEIi_pjRhzpfY?e=nMnlHm',

@@ -113,9 +113,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         try { localStorage.removeItem(k); } catch {}
       });
 
-      const savedSettings = localStorage.getItem('ana_melo_settings_v6') || localStorage.getItem('ana_melo_settings_v5');
+      const savedSettings = localStorage.getItem('ana_melo_settings_v7') || localStorage.getItem('ana_melo_settings_v6') || localStorage.getItem('ana_melo_settings_v5');
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
+        if (parsed.publicAddressText && parsed.publicAddressText.includes('Maringá')) {
+          parsed.publicAddressText = initialSettings.publicAddressText;
+        }
+        if (parsed.pixCity === 'MARINGA') {
+          parsed.pixCity = 'UMUARAMA';
+        }
+        if (parsed.businessHours && parsed.businessHours.includes('Maringá')) {
+          parsed.businessHours = initialSettings.businessHours;
+        }
         setSettings({
           ...initialSettings,
           ...parsed,
@@ -177,7 +186,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Salvar no localStorage sempre que houver alterações
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_settings_v6', JSON.stringify(settings));
+    localStorage.setItem('ana_melo_settings_v7', JSON.stringify(settings));
   }, [settings, isClient]);
 
   useEffect(() => {

@@ -1149,7 +1149,7 @@ export default function AdminEncomendasAgendaPage() {
                 <strong>LOCAL:</strong>{' '}
                 {settings.showExactAddressPublicly
                   ? settings.address
-                  : 'Ateliê em Maringá - PR (Endereço enviado na confirmação)'}
+                  : 'Ateliê em Umuarama - PR (Endereço enviado na confirmação)'}
               </div>
             </div>
 

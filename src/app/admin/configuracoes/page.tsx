@@ -181,7 +181,7 @@ export default function AdminConfiguracoesPage() {
                     value={formData.publicAddressText || ''}
                     onChange={(e) => setFormData({ ...formData, publicAddressText: e.target.value })}
                     className="w-full px-3.5 py-2 rounded-lg border border-[#D5BFA8] bg-white text-xs focus:outline-hidden focus:border-[#2E1609]"
-                    placeholder="Ateliê em Maringá - PR (Endereço enviado na confirmação)"
+                    placeholder="Ateliê em Umuarama - PR (Endereço enviado na confirmação)"
                   />
                 </div>
               </div>
@@ -255,10 +255,10 @@ export default function AdminConfiguracoesPage() {
                 <label className="block font-semibold text-[#7A5A43] mb-1">Cidade do Titular</label>
                 <input
                   type="text"
-                  value={formData.pixCity || 'MARINGA'}
+                  value={formData.pixCity || 'UMUARAMA'}
                   onChange={(e) => setFormData({ ...formData, pixCity: e.target.value })}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
-                  placeholder="MARINGA"
+                  placeholder="UMUARAMA"
                 />
               </div>
             </div>

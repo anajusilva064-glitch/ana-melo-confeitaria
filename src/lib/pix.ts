@@ -43,7 +43,7 @@ export type PixParams = {
 export function generatePixPayload({
   pixKey,
   merchantName,
-  merchantCity = 'MARINGA',
+  merchantCity = 'UMUARAMA',
   amount,
   txId = '***',
 }: PixParams): string {

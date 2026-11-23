@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Ana Melo Confeitaria Artesanal | Doces de Festa & Encomendas',
-  description: 'Doces gourmet finos para festa, centos tradicionais e bolos comemorativos feitos sob encomenda em Maringá - PR.',
+  description: 'Doces gourmet finos para festa, centos tradicionais e bolos comemorativos feitos sob encomenda em Umuarama - PR.',
   icons: {
     icon: '/icon.jpg',
     shortcut: '/icon.jpg',
