@@ -11,6 +11,7 @@ import {
   OrderStatus,
   FinancialTransaction,
   StoreSettings,
+  BlockedDate,
 } from '@/types';
 import {
   initialCategories,
@@ -53,7 +54,13 @@ type StoreContextType = {
   addOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>) => Order;
   updateOrderStatus: (id: string, status: OrderStatus) => void;
   deleteOrder: (id: string) => void;
+  markOrderDepositPaid: (id: string, depositPaid: boolean) => void;
+  markOrderRemainingPaid: (id: string, remainingPaid: boolean) => void;
   syncPartnerSpreadsheet: () => Promise<{ success: boolean; count: number; message: string }>;
+
+  // Prazos e Bloqueios de Calendário
+  addBlockedDate: (date: string, reason?: string) => void;
+  removeBlockedDate: (id: string) => void;
 
   // Financeiro
   transactions: FinancialTransaction[];
@@ -106,9 +113,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         try { localStorage.removeItem(k); } catch {}
       });
 
-      const savedSettings = localStorage.getItem('ana_melo_settings_v5');
+      const savedSettings = localStorage.getItem('ana_melo_settings_v6') || localStorage.getItem('ana_melo_settings_v5');
       if (savedSettings) {
-        setSettings(JSON.parse(savedSettings));
+        const parsed = JSON.parse(savedSettings);
+        setSettings({
+          ...initialSettings,
+          ...parsed,
+          blockedDates: parsed.blockedDates || initialSettings.blockedDates,
+        });
       } else {
         setSettings(initialSettings);
       }
@@ -165,7 +177,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Salvar no localStorage sempre que houver alterações
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_settings_v5', JSON.stringify(settings));
+    localStorage.setItem('ana_melo_settings_v6', JSON.stringify(settings));
   }, [settings, isClient]);
 
   useEffect(() => {
@@ -353,6 +365,53 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setOrders((prev) => prev.filter((o) => o.id !== id));
   };
 
+  const markOrderDepositPaid = (id: string, depositPaid: boolean) => {
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id !== id) return o;
+        const bothPaid = depositPaid && (o.remainingPaid ?? false);
+        return {
+          ...o,
+          depositPaid,
+          paymentStatus: bothPaid ? 'paid' : 'pending',
+        };
+      })
+    );
+  };
+
+  const markOrderRemainingPaid = (id: string, remainingPaid: boolean) => {
+    setOrders((prev) =>
+      prev.map((o) => {
+        if (o.id !== id) return o;
+        const bothPaid = (o.depositPaid ?? true) && remainingPaid;
+        return {
+          ...o,
+          remainingPaid,
+          paymentStatus: bothPaid ? 'paid' : 'pending',
+        };
+      })
+    );
+  };
+
+  const addBlockedDate = (date: string, reason?: string) => {
+    const newBlocked: BlockedDate = {
+      id: `blk-${Date.now()}`,
+      date,
+      reason: reason?.trim() || 'Capacidade Esgotada',
+    };
+    setSettings((prev) => ({
+      ...prev,
+      blockedDates: [...(prev.blockedDates || []), newBlocked],
+    }));
+  };
+
+  const removeBlockedDate = (id: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      blockedDates: (prev.blockedDates || []).filter((b) => b.id !== id),
+    }));
+  };
+
   const syncPartnerSpreadsheet = async (): Promise<{ success: boolean; count: number; message: string }> => {
     try {
       const res = await fetch('/api/partner/sync-onedrive', {
@@ -469,7 +528,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addOrder,
         updateOrderStatus,
         deleteOrder,
+        markOrderDepositPaid,
+        markOrderRemainingPaid,
         syncPartnerSpreadsheet,
+        addBlockedDate,
+        removeBlockedDate,
         transactions,
         addTransaction,
         deleteTransaction,

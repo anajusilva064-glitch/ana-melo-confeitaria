@@ -27,6 +27,10 @@ import {
   Phone,
   AlertCircle,
   Tag,
+  Ban,
+  ShieldCheck,
+  CreditCard,
+  QrCode,
 } from 'lucide-react';
 import { sendAutomaticWhatsAppNotification } from '@/lib/whatsapp';
 
@@ -55,7 +59,17 @@ const agendaColumns: { id: OrderStatus; title: string; color: string; badgeColor
 ];
 
 export default function AdminEncomendasAgendaPage() {
-  const { orders, updateOrderStatus, addOrder, syncPartnerSpreadsheet, settings } = useStore();
+  const {
+    orders,
+    updateOrderStatus,
+    addOrder,
+    syncPartnerSpreadsheet,
+    settings,
+    markOrderDepositPaid,
+    markOrderRemainingPaid,
+    addBlockedDate,
+    removeBlockedDate,
+  } = useStore();
 
   // Estados de Visualização
   const [viewMode, setViewMode] = useState<'calendar' | 'kanban'>('calendar');
@@ -451,18 +465,26 @@ export default function AdminEncomendasAgendaPage() {
                 );
               }
 
+              const isBlocked = settings.blockedDates?.find((b) => b.date === cell.dateStr);
+
               return (
                 <div
                   key={`day-${cell.dayNumber}`}
-                  className={`min-h-[110px] p-1.5 sm:p-2.5 flex flex-col justify-between transition-colors group ${
-                    isToday ? 'bg-amber-50/50' : 'bg-white hover:bg-[#FAF7F3]/60'
+                  className={`min-h-[115px] p-1.5 sm:p-2.5 flex flex-col justify-between transition-colors group ${
+                    isBlocked
+                      ? 'bg-red-50/70 border-red-200'
+                      : isToday
+                      ? 'bg-amber-50/50'
+                      : 'bg-white hover:bg-[#FAF7F3]/60'
                   }`}
                 >
                   {/* Day Header */}
                   <div className="flex items-center justify-between mb-1.5">
                     <span
                       className={`text-xs sm:text-sm font-bold rounded-lg w-7 h-7 flex items-center justify-center ${
-                        isToday
+                        isBlocked
+                          ? 'bg-red-700 text-white shadow-xs'
+                          : isToday
                           ? 'bg-[#2E1609] text-white shadow-xs'
                           : cell.orders.length > 0
                           ? 'text-[#2E1609] font-extrabold'
@@ -472,21 +494,49 @@ export default function AdminEncomendasAgendaPage() {
                       {String(cell.dayNumber).padStart(2, '0')}
                     </span>
 
-                    {/* Quick Add on Date */}
-                    <button
-                      onClick={() => {
-                        setNewOrderForm((prev) => ({
-                          ...prev,
-                          scheduledDate: cell.dateStr || '2026-11-20',
-                        }));
-                        setIsAddModalOpen(true);
-                      }}
-                      className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded-md hover:bg-[#EFE4D8] text-[#7A5A43] flex items-center justify-center transition-opacity cursor-pointer"
-                      title={`Adicionar encomenda no dia ${cell.dayNumber}`}
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {isBlocked ? (
+                        <button
+                          onClick={() => removeBlockedDate(isBlocked.id)}
+                          className="opacity-0 group-hover:opacity-100 text-red-700 hover:text-red-950 p-1 text-[10px] font-bold flex items-center gap-0.5 cursor-pointer"
+                          title="Desbloquear esta data"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => addBlockedDate(cell.dateStr!, 'Capacidade Esgotada')}
+                          className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-100 text-red-600 transition-opacity cursor-pointer"
+                          title="Bloquear esta data (Capacidade Esgotada)"
+                        >
+                          <Ban className="w-3 h-3" />
+                        </button>
+                      )}
+
+                      {/* Quick Add on Date */}
+                      <button
+                        onClick={() => {
+                          setNewOrderForm((prev) => ({
+                            ...prev,
+                            scheduledDate: cell.dateStr || '2026-11-20',
+                          }));
+                          setIsAddModalOpen(true);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded-md hover:bg-[#EFE4D8] text-[#7A5A43] flex items-center justify-center transition-opacity cursor-pointer"
+                        title={`Adicionar encomenda no dia ${cell.dayNumber}`}
+                      >
+                        <Plus className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
+
+                  {/* Blocked Date Badge */}
+                  {isBlocked && (
+                    <div className="mb-1.5 px-1.5 py-0.5 rounded-md bg-red-100 border border-red-300 text-red-900 text-[9px] font-bold flex items-center gap-1">
+                      <Ban className="w-2.5 h-2.5 text-red-600 shrink-0" />
+                      <span className="truncate">{isBlocked.reason || 'Agenda Fechada'}</span>
+                    </div>
+                  )}
 
                   {/* Day Orders Stack */}
                   <div className="flex-1 space-y-1.5 overflow-hidden">
@@ -529,6 +579,22 @@ export default function AdminEncomendasAgendaPage() {
                           <div className="text-[9px] text-[#7A5A43] truncate mt-0.5 font-sans">
                             {ord.items[0]?.productName || ord.notes || 'Doces de Festa'}
                           </div>
+
+                          {/* Se for 50% de sinal */}
+                          {ord.paymentScheme === 'half_deposit' && (
+                            <div className="mt-1 flex items-center gap-1 text-[8px] font-bold">
+                              <span className={`px-1 py-0.2 rounded ${
+                                ord.depositPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-200 text-amber-900'
+                              }`}>
+                                {ord.depositPaid ? 'Sinal 50% ✓' : 'Sinal 50% ⏳'}
+                              </span>
+                              {ord.remainingPaid && (
+                                <span className="px-1 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                                  Restante ✓
+                                </span>
+                              )}
+                            </div>
+                          )}
 
                           <div className="flex items-center justify-between text-[9px] font-semibold text-[#5A3821] mt-1 pt-0.5 border-t border-black/5">
                             <span>{formatCurrency(ord.totalAmount)}</span>
@@ -641,6 +707,45 @@ export default function AdminEncomendasAgendaPage() {
                             )}
                           </div>
 
+                          {/* Condição de Pagamento / Sinal */}
+                          <div className="p-2 rounded-xl bg-white/90 border border-[#E8D5C4] text-[10px] space-y-1">
+                            <div className="flex items-center justify-between text-[#7A5A43]">
+                              <span className="font-semibold">
+                                {order.paymentMethod === 'card_link' ? 'Cartão de Crédito' : 'Pix Direto'}
+                              </span>
+                              <span className="font-bold text-[#2E1609]">
+                                {formatCurrency(order.totalAmount)}
+                              </span>
+                            </div>
+
+                            {order.paymentScheme === 'half_deposit' ? (
+                              <div className="flex items-center gap-1.5 pt-0.5 border-t border-[#F2E8DF]">
+                                <span
+                                  className={`px-1.5 py-0.5 rounded font-bold text-[9px] ${
+                                    order.depositPaid
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-amber-100 text-amber-900'
+                                  }`}
+                                >
+                                  {order.depositPaid ? 'Sinal 50% Pago' : 'Sinal 50% Pendente'}
+                                </span>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded font-bold text-[9px] ${
+                                    order.remainingPaid
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : 'bg-stone-100 text-stone-700'
+                                  }`}
+                                >
+                                  {order.remainingPaid ? 'Restante Pago' : '50% na Véspera'}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="text-[9px] text-[#7A5A43]">
+                                <span>Pagamento Integral (100%)</span>
+                              </div>
+                            )}
+                          </div>
+
                           {/* Footer & Actions */}
                           <div className="pt-2 border-t border-[#E8D5C4] flex items-center justify-between text-xs">
                             <span className="font-serif font-bold text-sm text-[#2E1609]">
@@ -734,6 +839,109 @@ export default function AdminEncomendasAgendaPage() {
                 {selectedOrderDetails.notes && (
                   <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 text-xs">
                     <strong>Observação do Parceiro:</strong> {selectedOrderDetails.notes}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Detalhes Financeiros & Sinal 50% */}
+            <div className="space-y-2">
+              <span className="font-bold text-xs uppercase tracking-wider text-[#6E4F38] block">
+                Controle de Pagamento & Sinal
+              </span>
+
+              <div className="p-3.5 rounded-2xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 font-semibold text-[#2E1609]">
+                    {selectedOrderDetails.paymentMethod === 'card_link' ? (
+                      <>
+                        <CreditCard className="w-4 h-4 text-[#C69255]" />
+                        <span>Cartão de Crédito (Link Direto)</span>
+                      </>
+                    ) : (
+                      <>
+                        <QrCode className="w-4 h-4 text-[#C69255]" />
+                        <span>Pix Direto ({settings.pixKey})</span>
+                      </>
+                    )}
+                  </div>
+                  <span className="font-bold text-[#2E1609] text-sm">
+                    {formatCurrency(selectedOrderDetails.totalAmount)}
+                  </span>
+                </div>
+
+                {selectedOrderDetails.paymentScheme === 'half_deposit' ? (
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E8D5C4]">
+                    {/* Sinal 50% */}
+                    <div className="p-2.5 rounded-xl bg-white border border-[#D5BFA8] space-y-1.5">
+                      <div className="text-[10px] text-[#7A5A43] font-semibold">
+                        Sinal de 50% (Reserva da Data):
+                      </div>
+                      <div className="font-bold text-sm text-[#2E1609]">
+                        {formatCurrency(
+                          selectedOrderDetails.depositAmount ?? selectedOrderDetails.totalAmount * 0.5
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !selectedOrderDetails.depositPaid;
+                          markOrderDepositPaid(selectedOrderDetails.id, nextVal);
+                          setSelectedOrderDetails((prev) =>
+                            prev ? { ...prev, depositPaid: nextVal } : null
+                          );
+                        }}
+                        className={`w-full py-1.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                          selectedOrderDetails.depositPaid
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            : 'bg-amber-100 text-amber-900 hover:bg-amber-200'
+                        }`}
+                      >
+                        {selectedOrderDetails.depositPaid ? '✓ Sinal 50% Pago' : 'Marcar Sinal Pago'}
+                      </button>
+                    </div>
+
+                    {/* Restante 50% */}
+                    <div className="p-2.5 rounded-xl bg-white border border-[#D5BFA8] space-y-1.5">
+                      <div className="text-[10px] text-[#7A5A43] font-semibold">
+                        Restante na Véspera (50%):
+                      </div>
+                      <div className="font-bold text-sm text-[#2E1609]">
+                        {formatCurrency(
+                          selectedOrderDetails.remainingAmount ?? selectedOrderDetails.totalAmount * 0.5
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !selectedOrderDetails.remainingPaid;
+                          markOrderRemainingPaid(selectedOrderDetails.id, nextVal);
+                          setSelectedOrderDetails((prev) =>
+                            prev ? { ...prev, remainingPaid: nextVal } : null
+                          );
+                        }}
+                        className={`w-full py-1.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                          selectedOrderDetails.remainingPaid
+                            ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                            : 'bg-stone-200 text-stone-800 hover:bg-stone-300'
+                        }`}
+                      >
+                        {selectedOrderDetails.remainingPaid ? '✓ Restante Quitado' : 'Marcar Restante Pago'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-2 border-t border-[#E8D5C4] flex items-center justify-between text-xs">
+                    <span className="text-[#7A5A43]">Condição: Quitação Integral (100%)</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                        selectedOrderDetails.paymentStatus === 'paid'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
+                      {selectedOrderDetails.paymentStatus === 'paid' ? 'Pago' : 'Aguardando Pagamento'}
+                    </span>
                   </div>
                 )}
               </div>

@@ -85,6 +85,12 @@ export type OrderItem = {
   };
 };
 
+export type BlockedDate = {
+  id: string;
+  date: string; // formato YYYY-MM-DD
+  reason?: string; // ex: 'Capacidade Esgotada', 'Férias Ateliê'
+};
+
 export type Order = {
   id: string;
   orderNumber: string;
@@ -100,11 +106,23 @@ export type Order = {
   scheduledTime: string;
   items: OrderItem[];
   totalAmount: number;
-  paymentMethod: 'pix' | 'cash' | 'card';
+  paymentMethod: 'pix' | 'card_link' | 'cash' | 'card';
   paymentStatus: PaymentStatus;
   orderStatus: OrderStatus;
   notes?: string;
   createdAt: string;
+
+  // Regra de Pagamento de Encomendas: 50% de Sinal + 50% na Véspera
+  paymentScheme?: 'full' | 'half_deposit';
+  depositAmount?: number;
+  depositPaid?: boolean;
+  remainingAmount?: number;
+  remainingPaid?: boolean;
+
+  // Links e Códigos de Pagamento Direto
+  pixPayload?: string;
+  cardPaymentUrl?: string;
+
   partnerInfo?: {
     eventName?: string;
     packageType?: string;
@@ -134,9 +152,27 @@ export type StoreSettings = {
   isResidential: boolean;
   showExactAddressPublicly: boolean;
   publicAddressText: string;
+
+  // Pagamento Pix
   pixKey: string;
   pixKeyType: 'cpf' | 'cnpj' | 'email' | 'phone' | 'random';
   pixReceiverName: string;
+  pixCity?: string;
+
+  // Pagamento Cartão (Link de Pagamento Direto - Mercado Pago / InfinitePay / Stone)
+  enableCardPayment: boolean;
+  cardPaymentLink: string;
+
+  // Regra de Encomendas (Sinal 50% + 50% na véspera)
+  enableHalfDepositForPreOrders: boolean;
+
+  // Regras de Prazos Mínimos (Antecedência em Dias)
+  minNoticeDaysSweets: number; // ex: 2 dias para doces de festa
+  minNoticeDaysCakes: number;  // ex: 3 dias para bolos decorados
+
+  // Bloqueio de Datas / Capacidade Esgotada / Férias
+  blockedDates: BlockedDate[];
+
   defaultDeliveryFee: number;
   freeDeliveryMinAmount: number;
   minNoticeHoursReady: number;

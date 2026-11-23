@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '@/context/StoreContext';
 import { formatCurrency, createWhatsAppLink } from '@/lib/utils';
+import { generatePixPayload } from '@/lib/pix';
+import QRCode from 'qrcode';
 import {
   X,
   Trash2,
@@ -15,6 +17,12 @@ import {
   Copy,
   Check,
   Send,
+  AlertTriangle,
+  CreditCard,
+  QrCode,
+  ExternalLink,
+  ShieldCheck,
+  CheckCircle2,
 } from 'lucide-react';
 
 export default function CartDrawer() {
@@ -32,102 +40,253 @@ export default function CartDrawer() {
 
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('2026-11-18');
+
+  // Regras de Prazos e Antecedência
+  const hasCakesInCart = useMemo(() => {
+    return cart.some(
+      (item) =>
+        item.productId.includes('bolo') ||
+        item.productName.toLowerCase().includes('bolo') ||
+        item.customDetails?.dough !== undefined
+    );
+  }, [cart]);
+
+  const requiredNoticeDays = useMemo(() => {
+    return hasCakesInCart
+      ? (settings.minNoticeDaysCakes ?? 3)
+      : (settings.minNoticeDaysSweets ?? 2);
+  }, [hasCakesInCart, settings.minNoticeDaysCakes, settings.minNoticeDaysSweets]);
+
+  // Data mínima calculada a partir de hoje + dias de antecedência (em useEffect para compatibilidade com static prerender)
+  const [minDateStr, setMinDateStr] = useState('2026-11-20');
+  const [scheduledDate, setScheduledDate] = useState('2026-11-20');
   const [scheduledTime, setScheduledTime] = useState('15:00');
   const [notes, setNotes] = useState('');
-  const [copiedPix, setCopiedPix] = useState(false);
+
+  // Atualizar data mínima dinamicamente no client-side
+  useEffect(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + requiredNoticeDays);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const computedMin = `${year}-${month}-${day}`;
+    setMinDateStr(computedMin);
+    setScheduledDate((prev) => (prev < computedMin ? computedMin : prev));
+  }, [requiredNoticeDays]);
+
+  // Checagem de Data Bloqueada / Esgotada
+  const blockedDateInfo = useMemo(() => {
+    if (!settings.blockedDates || !scheduledDate) return null;
+    return settings.blockedDates.find((b) => b.date === scheduledDate) || null;
+  }, [settings.blockedDates, scheduledDate]);
+
+  // Esquema de Pagamento: 50% de Sinal vs 100% Total
+  const [paymentScheme, setPaymentScheme] = useState<'half_deposit' | 'full'>('half_deposit');
+
+  // Método de Pagamento: Pix vs Cartão (Link Direto)
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card_link'>('pix');
+
+  // Valores calculados
+  const isHalfDeposit = settings.enableHalfDepositForPreOrders && paymentScheme === 'half_deposit';
+  const amountToPayNow = isHalfDeposit ? Math.round((cartTotal / 2) * 100) / 100 : cartTotal;
+  const remainingAmount = isHalfDeposit ? Math.round((cartTotal - amountToPayNow) * 100) / 100 : 0;
+
+  // Estado de Sucesso / Checkout Concluído
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [orderCompletedNumber, setOrderCompletedNumber] = useState<string | null>(null);
+  const [completedOrder, setCompletedOrder] = useState<{
+    orderNumber: string;
+    totalAmount: number;
+    amountToPayNow: number;
+    remainingAmount: number;
+    paymentScheme: 'half_deposit' | 'full';
+    paymentMethod: 'pix' | 'card_link';
+    pixPayload?: string;
+    pixQrCodeUrl?: string;
+    cardPaymentUrl?: string;
+    whatsappUrl: string;
+  } | null>(null);
+
+  const [copiedPix, setCopiedPix] = useState(false);
 
   if (!isCartOpen) return null;
 
-  const handleCopyPix = () => {
-    navigator.clipboard.writeText(settings.pixKey);
+  const handleCopyPix = (textToCopy: string) => {
+    navigator.clipboard.writeText(textToCopy);
     setCopiedPix(true);
-    setTimeout(() => setCopiedPix(false), 2000);
+    setTimeout(() => setCopiedPix(false), 2500);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!customerName.trim()) {
       alert('Por favor, informe seu nome completo.');
       return;
     }
     if (!customerPhone.trim()) {
-      alert('Por favor, informe seu telefone de contato.');
+      alert('Por favor, informe seu WhatsApp para confirmação do pedido.');
+      return;
+    }
+    if (blockedDateInfo) {
+      alert(`A data escolhida está indisponível (${blockedDateInfo.reason || 'Capacidade Esgotada'}). Por favor, selecione outra data.`);
+      return;
+    }
+    if (scheduledDate < minDateStr) {
+      alert(`O prazo mínimo para esta encomenda é de ${requiredNoticeDays} dias. Por favor, selecione uma data a partir de ${minDateStr.split('-').reverse().join('/')}.`);
       return;
     }
 
     setIsSubmitting(true);
 
-    const createdOrder = addOrder({
-      customerName: customerName.trim(),
-      customerPhone: customerPhone.trim(),
-      deliveryType: 'pickup',
-      deliveryFee: 0,
-      scheduledDate,
-      scheduledTime,
-      items: cart,
-      totalAmount: cartTotal,
-      paymentMethod: 'pix',
-      paymentStatus: 'pending',
-      orderStatus: 'received',
-      notes: notes.trim() || undefined,
-    });
+    try {
+      // 1. Gera o payload oficial EMV Pix se for Pix
+      let pixPayload = '';
+      let pixQrCodeUrl = '';
 
-    setOrderCompletedNumber(createdOrder.orderNumber);
+      const tempOrderNum = `PED-${Date.now().toString().slice(-4)}`;
 
-    // Mensagem profissional no WhatsApp
-    let msg = `*PEDIDO ${createdOrder.orderNumber} - ${settings.storeName.toUpperCase()}*\n\n`;
-    msg += `*Cliente:* ${customerName}\n`;
-    msg += `*Telefone:* ${customerPhone}\n`;
-    msg += `*Data de Retirada:* ${scheduledDate.split('-').reverse().join('/')} às ${scheduledTime}\n`;
-    const pickupLocation = settings.showExactAddressPublicly
-      ? settings.address
-      : (settings.publicAddressText || 'Ateliê em Maringá - PR (Endereço para retirada enviado na confirmação)');
-    msg += `*Local de Retirada:* ${pickupLocation}\n\n`;
+      if (paymentMethod === 'pix') {
+        pixPayload = generatePixPayload({
+          pixKey: settings.pixKey,
+          merchantName: settings.pixReceiverName || 'Ana Melo',
+          merchantCity: settings.pixCity || 'MARINGA',
+          amount: amountToPayNow,
+          txId: tempOrderNum.replace('-', ''),
+        });
 
-    msg += `*ITENS DA ENCOMENDA:*\n`;
-    cart.forEach((item, idx) => {
-      msg += `${idx + 1}. ${item.quantity}x ${item.productName} - ${formatCurrency(item.totalPrice)}\n`;
-      if (item.customDetails) {
-        if (item.customDetails.size) msg += `   - Tamanho: ${item.customDetails.size}\n`;
-        if (item.customDetails.dough) msg += `   - Massa: ${item.customDetails.dough}\n`;
-        if (item.customDetails.fillings?.length) msg += `   - Recheios: ${item.customDetails.fillings.join(' + ')}\n`;
-        if (item.customDetails.topping) msg += `   - Cobertura: ${item.customDetails.topping}\n`;
-        if (item.customDetails.extras?.length) msg += `   - Adicionais: ${item.customDetails.extras.join(', ')}\n`;
-        if (item.customDetails.cakeMessage) msg += `   - Escrita/Topo: "${item.customDetails.cakeMessage}"\n`;
+        try {
+          pixQrCodeUrl = await QRCode.toDataURL(pixPayload, {
+            width: 280,
+            margin: 1,
+            color: {
+              dark: '#2E1609',
+              light: '#FFFFFF',
+            },
+          });
+        } catch (err) {
+          console.warn('Erro ao gerar imagem de QR code:', err);
+        }
       }
-    });
 
-    msg += `\n*VALOR TOTAL:* ${formatCurrency(cartTotal)}\n`;
-    msg += `*Forma de Pagamento:* Pix (Chave: ${settings.pixKey})\n`;
+      // 2. Registra o pedido no StoreContext
+      const createdOrder = addOrder({
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim(),
+        isPreOrder: true,
+        source: 'storefront',
+        deliveryType: 'pickup',
+        deliveryFee: 0,
+        scheduledDate,
+        scheduledTime,
+        items: cart,
+        totalAmount: cartTotal,
+        paymentMethod: paymentMethod === 'card_link' ? 'card_link' : 'pix',
+        paymentStatus: 'pending',
+        orderStatus: 'received',
+        notes: notes.trim() || undefined,
+        paymentScheme: isHalfDeposit ? 'half_deposit' : 'full',
+        depositAmount: isHalfDeposit ? amountToPayNow : undefined,
+        depositPaid: false,
+        remainingAmount: isHalfDeposit ? remainingAmount : undefined,
+        remainingPaid: false,
+        pixPayload: pixPayload || undefined,
+        cardPaymentUrl: paymentMethod === 'card_link' ? settings.cardPaymentLink : undefined,
+      });
 
-    if (notes.trim()) {
-      msg += `\n*Observações:* ${notes}\n`;
+      // 3. Monta a mensagem profissional do WhatsApp
+      let msg = `*NOVA ENCOMENDA ${createdOrder.orderNumber} - ${settings.storeName.toUpperCase()}*\n\n`;
+      msg += `*Cliente:* ${customerName.trim()}\n`;
+      msg += `*Telefone:* ${customerPhone.trim()}\n`;
+      msg += `*Data de Retirada:* ${scheduledDate.split('-').reverse().join('/')} às ${scheduledTime}\n`;
+
+      const pickupLocation = settings.showExactAddressPublicly
+        ? settings.address
+        : (settings.publicAddressText || 'Ateliê em Maringá - PR (Endereço para retirada enviado na confirmação)');
+      msg += `*Local de Retirada:* ${pickupLocation}\n\n`;
+
+      msg += `*ITENS DA ENCOMENDA:*\n`;
+      cart.forEach((item, idx) => {
+        msg += `${idx + 1}. ${item.quantity}x ${item.productName} - ${formatCurrency(item.totalPrice)}\n`;
+        if (item.customDetails) {
+          if (item.customDetails.size) msg += `   - Tamanho: ${item.customDetails.size}\n`;
+          if (item.customDetails.dough) msg += `   - Massa: ${item.customDetails.dough}\n`;
+          if (item.customDetails.fillings?.length) msg += `   - Recheios: ${item.customDetails.fillings.join(' + ')}\n`;
+          if (item.customDetails.topping) msg += `   - Cobertura: ${item.customDetails.topping}\n`;
+          if (item.customDetails.sweetPackageSize) msg += `   - Quantidade: ${item.customDetails.sweetPackageSize}\n`;
+          if (item.customDetails.selectedFlavors?.length) msg += `   - Sabores: ${item.customDetails.selectedFlavors.join(', ')}\n`;
+          if (item.customDetails.wrapperType) msg += `   - Forminha: ${item.customDetails.wrapperType}\n`;
+          if (item.customDetails.extras?.length) msg += `   - Adicionais: ${item.customDetails.extras.join(', ')}\n`;
+          if (item.customDetails.cakeMessage) msg += `   - Topo/Escrita: "${item.customDetails.cakeMessage}"\n`;
+        }
+      });
+
+      msg += `\n*VALOR TOTAL:* ${formatCurrency(cartTotal)}\n`;
+
+      if (isHalfDeposit) {
+        msg += `*CONDIÇÃO DE ENCOMENDA:* Sinal de 50% (${formatCurrency(amountToPayNow)}) agora + 50% restante (${formatCurrency(remainingAmount)}) na véspera da entrega.\n`;
+      } else {
+        msg += `*CONDIÇÃO DE ENCOMENDA:* Pagamento Integral 100% (${formatCurrency(cartTotal)}).\n`;
+      }
+
+      if (paymentMethod === 'pix') {
+        msg += `*Forma de Pagamento:* Pix\n`;
+        msg += `*Chave Pix:* ${settings.pixKey} (${settings.pixReceiverName})\n`;
+        if (pixPayload) {
+          msg += `*Pix Copia e Cola:* \n${pixPayload}\n`;
+        }
+      } else {
+        msg += `*Forma de Pagamento:* Cartão de Crédito/Débito\n`;
+        if (settings.cardPaymentLink) {
+          msg += `*Link de Pagamento no Cartão:* ${settings.cardPaymentLink}\n`;
+        }
+      }
+
+      if (notes.trim()) {
+        msg += `\n*Observações:* ${notes.trim()}\n`;
+      }
+
+      const waLink = createWhatsAppLink(settings.whatsapp, msg);
+
+      setCompletedOrder({
+        orderNumber: createdOrder.orderNumber,
+        totalAmount: cartTotal,
+        amountToPayNow,
+        remainingAmount,
+        paymentScheme: isHalfDeposit ? 'half_deposit' : 'full',
+        paymentMethod,
+        pixPayload,
+        pixQrCodeUrl,
+        cardPaymentUrl: settings.cardPaymentLink,
+        whatsappUrl: waLink,
+      });
+
+      // Abre o WhatsApp em nova aba
+      window.open(waLink, '_blank');
+      clearCart();
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const waLink = createWhatsAppLink(settings.whatsapp, msg);
-    window.open(waLink, '_blank');
-
-    clearCart();
-    setIsSubmitting(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-[#1F1108]/60 backdrop-blur-xs">
+    <div className="fixed inset-0 z-50 flex justify-end bg-[#1F1108]/65 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between overflow-hidden border-l border-[#E8D5C4]">
         {/* Header */}
         <div className="p-5 border-b border-[#E8D5C4] flex items-center justify-between bg-[#FAF7F3] shrink-0">
           <div className="flex items-center gap-2.5">
-            <ShoppingBag className="w-5 h-5 text-[#3D1F0D]" />
-            <h2 className="font-serif text-base font-bold text-[#3D1F0D]">
-              Sua Sacola
-            </h2>
+            <ShoppingBag className="w-5 h-5 text-[#2E1609]" />
+            <div>
+              <h2 className="font-serif text-base font-bold text-[#2E1609]">
+                Sua Sacola de Encomendas
+              </h2>
+              <span className="text-[11px] text-[#7A5A43]">
+                {cart.length} {cart.length === 1 ? 'item selecionado' : 'itens selecionados'}
+              </span>
+            </div>
           </div>
           <button
             onClick={() => {
               setIsCartOpen(false);
-              setOrderCompletedNumber(null);
+              setCompletedOrder(null);
             }}
             className="w-8 h-8 rounded-full hover:bg-[#EFE4D8] flex items-center justify-center text-[#7A5A43] transition-colors"
           >
@@ -135,42 +294,155 @@ export default function CartDrawer() {
           </button>
         </div>
 
-        {/* Success Screen */}
-        {orderCompletedNumber ? (
-          <div className="p-8 text-center flex-1 flex flex-col items-center justify-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-[#FAF7F3] border border-[#D5BFA8] text-[#3D1F0D] flex items-center justify-center">
-              <Check className="w-7 h-7" />
+        {/* TELA DE SUCESSO / PAGAMENTO DIRETO */}
+        {completedOrder ? (
+          <div className="p-6 overflow-y-auto flex-1 flex flex-col items-center justify-start space-y-5 text-center">
+            <div className="w-14 h-14 rounded-full bg-[#FAF7F3] border border-[#C69255] text-[#2E1609] flex items-center justify-center shadow-xs">
+              <Check className="w-7 h-7 text-[#2E1609]" />
             </div>
-            <h3 className="font-serif text-2xl font-bold text-[#3D1F0D]">
-              Pedido Registrado
-            </h3>
-            <p className="text-xs text-[#7A5A43] max-w-xs leading-relaxed">
-              O pedido <span className="font-bold text-[#3D1F0D]">{orderCompletedNumber}</span> foi enviado para o WhatsApp da Ana Melo Confeitaria.
-            </p>
 
-            <div className="p-4 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] text-xs text-[#5A3821] w-full space-y-2 text-left">
-              <div className="font-semibold text-[#3D1F0D]">Pagamento via Pix:</div>
-              <div className="font-mono bg-white p-2 rounded-lg border border-[#D5BFA8] text-[11px] select-all">
-                {settings.pixKey}
+            <div className="space-y-1">
+              <span className="text-[11px] uppercase tracking-wider font-semibold text-[#C69255]">
+                Encomenda Registrada com Sucesso
+              </span>
+              <h3 className="font-serif text-2xl font-bold text-[#2E1609]">
+                Pedido {completedOrder.orderNumber}
+              </h3>
+              <p className="text-xs text-[#7A5A43] max-w-sm">
+                Enviamos os detalhes da sua encomenda para o WhatsApp do ateliê. Conclua o pagamento abaixo para confirmar sua reserva.
+              </p>
+            </div>
+
+            {/* Resumo do Pagamento / Sinal */}
+            <div className="w-full p-4 rounded-2xl bg-[#FAF7F3] border border-[#E8D5C4] text-left space-y-3">
+              <div className="flex justify-between items-center text-xs pb-2 border-b border-[#E8D5C4]">
+                <span className="text-[#7A5A43]">Valor Total da Encomenda:</span>
+                <span className="font-semibold text-[#2E1609]">{formatCurrency(completedOrder.totalAmount)}</span>
               </div>
-              <button
-                onClick={handleCopyPix}
-                className="w-full py-2 bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] rounded-lg font-medium text-xs flex items-center justify-center gap-1.5 transition-colors"
+
+              {completedOrder.paymentScheme === 'half_deposit' ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-[#2E1609] flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-[#C69255]" />
+                      Sinal de 50% (Agora):
+                    </span>
+                    <span className="font-bold text-base text-[#2E1609]">
+                      {formatCurrency(completedOrder.amountToPayNow)}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed">
+                    <strong>50% Restante ({formatCurrency(completedOrder.remainingAmount)}):</strong> Será acertado na véspera da data de retirada agendada.
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-bold text-[#2E1609]">Pagamento Total (100%):</span>
+                  <span className="font-bold text-base text-[#2E1609]">
+                    {formatCurrency(completedOrder.amountToPayNow)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* SELEÇÃO DO PAGAMENTO EFETUADO */}
+            {completedOrder.paymentMethod === 'pix' ? (
+              <div className="w-full p-5 rounded-2xl bg-white border border-[#C69255] shadow-xs space-y-4">
+                <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#2E1609]">
+                  <QrCode className="w-4 h-4 text-[#C69255]" />
+                  <span>Pagamento Instantâneo via Pix</span>
+                </div>
+
+                {completedOrder.pixQrCodeUrl && (
+                  <div className="flex flex-col items-center justify-center p-3 bg-[#FAF7F3] rounded-xl border border-[#E8D5C4]">
+                    <img
+                      src={completedOrder.pixQrCodeUrl}
+                      alt="QR Code Pix"
+                      className="w-52 h-52 rounded-lg object-contain bg-white p-2 border border-[#E8D5C4]"
+                    />
+                    <span className="text-[10px] text-[#7A5A43] mt-2 font-medium">
+                      Aponte a câmera do aplicativo do seu banco
+                    </span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[10px] font-semibold text-[#7A5A43] uppercase tracking-wider block">
+                    Pix Copia e Cola
+                  </label>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      readOnly
+                      value={completedOrder.pixPayload || settings.pixKey}
+                      className="w-full px-3 py-2 rounded-xl bg-[#FAF7F3] border border-[#D5BFA8] text-[11px] font-mono text-[#2E1609] select-all truncate"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleCopyPix(completedOrder.pixPayload || settings.pixKey)}
+                      className="px-4 py-2 bg-[#2E1609] hover:bg-[#1F1108] text-white rounded-xl font-medium text-xs flex items-center gap-1.5 shrink-0 transition-colors"
+                    >
+                      {copiedPix ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedPix ? 'Copiado!' : 'Copiar'}</span>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[#7A5A43] pt-1">
+                    Titular: <strong>{settings.pixReceiverName}</strong> • Maringá - PR
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full p-5 rounded-2xl bg-white border border-[#C69255] shadow-xs space-y-4">
+                <div className="flex items-center justify-center gap-2 text-xs font-bold text-[#2E1609]">
+                  <CreditCard className="w-4 h-4 text-[#C69255]" />
+                  <span>Pagamento com Cartão de Crédito ou Débito</span>
+                </div>
+
+                <p className="text-xs text-[#7A5A43] leading-relaxed">
+                  Clique no botão abaixo para abrir o checkout seguro e efetuar o pagamento do valor de{' '}
+                  <strong className="text-[#2E1609]">{formatCurrency(completedOrder.amountToPayNow)}</strong>.
+                </p>
+
+                {completedOrder.cardPaymentUrl && (
+                  <a
+                    href={completedOrder.cardPaymentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3.5 rounded-xl bg-[#2E1609] hover:bg-[#1F1108] text-white font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+                  >
+                    <span>Ir para Checkout de Cartão</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+
+                <p className="text-[11px] text-[#7A5A43]">
+                  Aceitamos as principais bandeiras (Visa, Mastercard, Elo, Hipercard).
+                </p>
+              </div>
+            )}
+
+            {/* Ações Finais */}
+            <div className="w-full flex flex-col gap-2 pt-2">
+              <a
+                href={completedOrder.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
               >
-                {copiedPix ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedPix ? 'Chave Copiada' : 'Copiar Chave Pix'}</span>
+                <Send className="w-4 h-4" />
+                <span>Reabrir Conversa no WhatsApp</span>
+              </a>
+
+              <button
+                onClick={() => {
+                  setIsCartOpen(false);
+                  setCompletedOrder(null);
+                }}
+                className="w-full py-2.5 rounded-xl border border-[#D5BFA8] text-xs font-semibold text-[#7A5A43] hover:bg-[#FAF7F3] transition-colors"
+              >
+                Fechar Sacola
               </button>
             </div>
-
-            <button
-              onClick={() => {
-                setIsCartOpen(false);
-                setOrderCompletedNumber(null);
-              }}
-              className="px-6 py-2.5 rounded-full bg-[#3D1F0D] text-white text-xs font-semibold hover:bg-[#2C1407]"
-            >
-              Concluir
-            </button>
           </div>
         ) : cart.length === 0 ? (
           /* Empty Cart */
@@ -178,37 +450,37 @@ export default function CartDrawer() {
             <div className="w-12 h-12 rounded-full bg-[#FAF7F3] border border-[#E8D5C4] text-[#7A5A43] flex items-center justify-center">
               <ShoppingBag className="w-5 h-5" />
             </div>
-            <h3 className="font-serif text-base font-bold text-[#3D1F0D]">
+            <h3 className="font-serif text-base font-bold text-[#2E1609]">
               Sua sacola está vazia
             </h3>
             <p className="text-xs text-[#7A5A43] max-w-xs">
-              Selecione bolos ou doces no cardápio para fazer sua encomenda.
+              Explore nossos doces gourmet de festa, tradicionais e bolos artesanais sob encomenda.
             </p>
           </div>
         ) : (
-          /* Cart List & Checkout Form */
+          /* LISTA DE ITENS & FORMULÁRIO COMPLETO */
           <div className="p-5 overflow-y-auto space-y-5 flex-1 text-xs">
-            {/* List */}
+            {/* Lista de Itens */}
             <div className="space-y-3">
               <div className="flex items-center justify-between text-[11px] font-semibold text-[#7A5A43] uppercase tracking-wider">
-                <span>Itens Selecionados ({cart.length})</span>
+                <span>Itens da Encomenda ({cart.length})</span>
                 <button
                   onClick={clearCart}
-                  className="text-[#A68F7B] hover:text-[#3D1F0D] flex items-center gap-1"
+                  className="text-[#A68F7B] hover:text-[#2E1609] flex items-center gap-1"
                 >
                   <Trash2 className="w-3 h-3" />
-                  <span>Limpar</span>
+                  <span>Limpar Tudo</span>
                 </button>
               </div>
 
               {cart.map((item) => (
                 <div
                   key={item.id}
-                  className="p-3.5 rounded-xl border border-[#E8D5C4] bg-white space-y-2"
+                  className="p-3.5 rounded-xl border border-[#E8D5C4] bg-white space-y-2 hover:border-[#D5BFA8] transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <h4 className="font-serif text-xs sm:text-sm font-bold text-[#3D1F0D]">
+                      <h4 className="font-serif text-xs sm:text-sm font-bold text-[#2E1609]">
                         {item.productName}
                       </h4>
                       <span className="text-xs font-semibold text-[#C69255]">
@@ -217,25 +489,34 @@ export default function CartDrawer() {
                     </div>
                     <button
                       onClick={() => removeFromCart(item.id)}
-                      className="text-[#A68F7B] hover:text-[#3D1F0D] p-1"
+                      className="text-[#A68F7B] hover:text-[#2E1609] p-1"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
                   {item.customDetails && (
-                    <div className="p-2 rounded-lg bg-[#FAF7F3] border border-[#E8D5C4] text-[11px] text-[#7A5A43] space-y-0.5">
-                      {item.customDetails.size && <div>• Tamanho: {item.customDetails.size}</div>}
-                      {item.customDetails.dough && <div>• Massa: {item.customDetails.dough}</div>}
+                    <div className="p-2.5 rounded-lg bg-[#FAF7F3] border border-[#E8D5C4] text-[11px] text-[#7A5A43] space-y-0.5">
+                      {item.customDetails.size && <div>• <strong>Tamanho:</strong> {item.customDetails.size}</div>}
+                      {item.customDetails.dough && <div>• <strong>Massa:</strong> {item.customDetails.dough}</div>}
                       {item.customDetails.fillings?.length && (
-                        <div>• Recheios: {item.customDetails.fillings.join(' + ')}</div>
+                        <div>• <strong>Recheios:</strong> {item.customDetails.fillings.join(' + ')}</div>
                       )}
-                      {item.customDetails.topping && <div>• Cobertura: {item.customDetails.topping}</div>}
+                      {item.customDetails.topping && <div>• <strong>Cobertura:</strong> {item.customDetails.topping}</div>}
+                      {item.customDetails.sweetPackageSize && (
+                        <div>• <strong>Pacote:</strong> {item.customDetails.sweetPackageSize}</div>
+                      )}
+                      {item.customDetails.selectedFlavors?.length && (
+                        <div>• <strong>Sabores Selecionados:</strong> {item.customDetails.selectedFlavors.join(', ')}</div>
+                      )}
+                      {item.customDetails.wrapperType && (
+                        <div>• <strong>Forminhas:</strong> {item.customDetails.wrapperType}</div>
+                      )}
                       {item.customDetails.extras?.length && (
-                        <div>• Adicionais: {item.customDetails.extras.join(', ')}</div>
+                        <div>• <strong>Adicionais:</strong> {item.customDetails.extras.join(', ')}</div>
                       )}
                       {item.customDetails.cakeMessage && (
-                        <div>• Topo: "{item.customDetails.cakeMessage}"</div>
+                        <div>• <strong>Topo/Escrita:</strong> "{item.customDetails.cakeMessage}"</div>
                       )}
                     </div>
                   )}
@@ -243,16 +524,16 @@ export default function CartDrawer() {
                   <div className="flex items-center justify-end gap-2 pt-1">
                     <button
                       onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
-                      className="w-6 h-6 rounded-md bg-[#FAF7F3] border border-[#E8D5C4] flex items-center justify-center text-[#3D1F0D]"
+                      className="w-6 h-6 rounded-md bg-[#FAF7F3] border border-[#E8D5C4] flex items-center justify-center text-[#2E1609] hover:bg-[#EFE4D8]"
                     >
                       <Minus className="w-3 h-3" />
                     </button>
-                    <span className="text-xs font-bold text-[#3D1F0D] w-5 text-center">
+                    <span className="text-xs font-bold text-[#2E1609] w-6 text-center">
                       {item.quantity}
                     </span>
                     <button
                       onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
-                      className="w-6 h-6 rounded-md bg-[#FAF7F3] border border-[#E8D5C4] flex items-center justify-center text-[#3D1F0D]"
+                      className="w-6 h-6 rounded-md bg-[#FAF7F3] border border-[#E8D5C4] flex items-center justify-center text-[#2E1609] hover:bg-[#EFE4D8]"
                     >
                       <Plus className="w-3 h-3" />
                     </button>
@@ -261,114 +542,257 @@ export default function CartDrawer() {
               ))}
             </div>
 
-            {/* Retirada Notice */}
+            {/* Aviso de Retirada */}
             <div className="p-3.5 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] flex items-start gap-2.5">
               <MapPin className="w-4 h-4 text-[#C69255] shrink-0 mt-0.5" />
               <div className="text-[11px] text-[#5A3821] leading-relaxed">
                 <strong>Retirada no Ateliê:</strong>{' '}
                 {settings.showExactAddressPublicly
                   ? settings.address
-                  : (settings.publicAddressText || 'Maringá - PR (Endereço completo enviado na confirmação)')}
+                  : (settings.publicAddressText || 'Maringá - PR (Endereço completo para retirada enviado na confirmação)')}
               </div>
             </div>
 
-            {/* Form */}
+            {/* FORMULÁRIO DE AGENDAMENTO & PRAZOS */}
             <div className="space-y-3 pt-2 border-t border-[#E8D5C4]">
               <span className="text-[11px] font-semibold text-[#7A5A43] uppercase tracking-wider block">
-                Dados do Responsável
+                Agendamento da Encomenda
               </span>
 
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <input
                   type="text"
                   placeholder="Seu nome completo *"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#3D1F0D]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
                 />
 
                 <input
                   type="tel"
-                  placeholder="Seu WhatsApp para confirmação *"
+                  placeholder="Seu WhatsApp para contato e confirmação *"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#3D1F0D]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
                 />
 
                 <div className="grid grid-cols-2 gap-2 pt-1">
                   <div>
-                    <label className="text-[10px] text-[#7A5A43] font-medium block mb-1">
-                      Data da Retirada
+                    <label className="text-[10px] text-[#7A5A43] font-semibold block mb-1">
+                      Data da Retirada *
                     </label>
                     <input
                       type="date"
+                      min={minDateStr}
                       value={scheduledDate}
                       onChange={(e) => setScheduledDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs"
+                      className={`w-full px-3 py-2 rounded-xl border text-xs focus:outline-hidden ${
+                        blockedDateInfo
+                          ? 'border-red-400 bg-red-50 text-red-900'
+                          : 'border-[#D5BFA8] bg-white'
+                      }`}
                     />
                   </div>
+
                   <div>
-                    <label className="text-[10px] text-[#7A5A43] font-medium block mb-1">
-                      Horário Aprox.
+                    <label className="text-[10px] text-[#7A5A43] font-semibold block mb-1">
+                      Horário Aprox. *
                     </label>
                     <input
                       type="time"
                       value={scheduledTime}
                       onChange={(e) => setScheduledTime(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs"
+                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs bg-white focus:outline-hidden"
                     />
                   </div>
                 </div>
 
+                {/* Aviso de Prazo Mínimo */}
+                <div className="text-[10px] text-[#7A5A43] flex items-center gap-1.5 px-1">
+                  <Clock className="w-3.5 h-3.5 text-[#C69255] shrink-0" />
+                  <span>
+                    Prazo mínimo de preparo:{' '}
+                    <strong>{requiredNoticeDays} dias de antecedência</strong>{' '}
+                    {hasCakesInCart ? '(para bolos artesanais)' : '(para doces de festa)'}.
+                  </span>
+                </div>
+
+                {/* Alerta de Data Bloqueada / Capacidade Esgotada */}
+                {blockedDateInfo && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[11px] flex items-start gap-2 animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong>Data Indisponível:</strong> {blockedDateInfo.reason || 'Capacidade Esgotada'}.
+                      <p className="text-[10px] text-red-700 mt-0.5">
+                        Já atingimos o limite máximo de produções para este dia. Por gentileza, escolha outra data.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <textarea
-                  placeholder="Alguma observação especial para a encomenda?"
+                  placeholder="Alguma observação especial, cores ou tema da festa?"
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#3D1F0D]"
+                  className="w-full px-3.5 py-2 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
                 />
               </div>
             </div>
 
-            {/* Pix Info */}
-            <div className="p-3.5 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#3D1F0D]">Pagamento via Pix</span>
-                <span className="text-[10px] text-[#7A5A43]">Chave Telefone</span>
+            {/* ESQUEMA DE PAGAMENTO: 50% SINAL OU 100% TOTAL */}
+            {settings.enableHalfDepositForPreOrders && (
+              <div className="space-y-2.5 pt-2 border-t border-[#E8D5C4]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[#7A5A43] uppercase tracking-wider">
+                    Condição de Pagamento da Encomenda
+                  </span>
+                  <span className="text-[10px] font-bold text-[#C69255] bg-[#FAF7F3] px-2 py-0.5 rounded-full border border-[#E8D5C4]">
+                    Flexibilidade
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      paymentScheme === 'half_deposit'
+                        ? 'border-[#2E1609] bg-[#FAF7F3] shadow-xs'
+                        : 'border-[#E8D5C4] bg-white hover:border-[#D5BFA8]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentScheme"
+                      checked={paymentScheme === 'half_deposit'}
+                      onChange={() => setPaymentScheme('half_deposit')}
+                      className="mt-0.5 text-[#2E1609] focus:ring-[#2E1609]"
+                    />
+                    <div className="space-y-0.5 flex-1">
+                      <div className="flex items-center justify-between text-xs font-bold text-[#2E1609]">
+                        <span>Pagar Sinal de 50% agora</span>
+                        <span className="text-[#C69255]">{formatCurrency(cartTotal * 0.5)}</span>
+                      </div>
+                      <p className="text-[11px] text-[#7A5A43] leading-relaxed">
+                        Garante o agendamento da sua data. O restante de{' '}
+                        <strong>{formatCurrency(cartTotal * 0.5)}</strong> é acertado na véspera da entrega.
+                      </p>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                      paymentScheme === 'full'
+                        ? 'border-[#2E1609] bg-[#FAF7F3] shadow-xs'
+                        : 'border-[#E8D5C4] bg-white hover:border-[#D5BFA8]'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentScheme"
+                      checked={paymentScheme === 'full'}
+                      onChange={() => setPaymentScheme('full')}
+                      className="mt-0.5 text-[#2E1609] focus:ring-[#2E1609]"
+                    />
+                    <div className="space-y-0.5 flex-1">
+                      <div className="flex items-center justify-between text-xs font-bold text-[#2E1609]">
+                        <span>Pagar Valor Total (100% à vista)</span>
+                        <span className="text-[#2E1609]">{formatCurrency(cartTotal)}</span>
+                      </div>
+                      <p className="text-[11px] text-[#7A5A43] leading-relaxed">
+                        Quitação total antecipada da sua encomenda no momento do pedido.
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </div>
-              <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-[#D5BFA8] font-mono text-[11px]">
-                <span>{settings.pixKey}</span>
+            )}
+
+            {/* FORMA DE PAGAMENTO DIRETO: PIX OU CARTÃO */}
+            <div className="space-y-2.5 pt-2 border-t border-[#E8D5C4]">
+              <span className="text-[11px] font-semibold text-[#7A5A43] uppercase tracking-wider block">
+                Forma de Pagamento
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={handleCopyPix}
-                  className="text-[#3D1F0D] hover:underline flex items-center gap-1 font-sans text-xs"
+                  onClick={() => setPaymentMethod('pix')}
+                  className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                    paymentMethod === 'pix'
+                      ? 'border-[#2E1609] bg-[#FAF7F3] shadow-xs ring-1 ring-[#2E1609]'
+                      : 'border-[#E8D5C4] bg-white hover:border-[#D5BFA8]'
+                  }`}
                 >
-                  {copiedPix ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedPix ? 'Copiado' : 'Copiar'}</span>
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                    <QrCode className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-xs text-[#2E1609]">Pix Direto</div>
+                    <div className="text-[10px] text-[#7A5A43]">QR Code & Copia e Cola</div>
+                  </div>
                 </button>
+
+                {settings.enableCardPayment && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('card_link')}
+                    className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                      paymentMethod === 'card_link'
+                        ? 'border-[#2E1609] bg-[#FAF7F3] shadow-xs ring-1 ring-[#2E1609]'
+                        : 'border-[#E8D5C4] bg-white hover:border-[#D5BFA8]'
+                    }`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-[#2E1609]">Cartão de Crédito</div>
+                      <div className="text-[10px] text-[#7A5A43]">Link de Pagamento Seguro</div>
+                    </div>
+                  </button>
+                )}
               </div>
-              <p className="text-[10px] text-[#7A5A43]">
-                Titular: {settings.pixReceiverName}.
-              </p>
             </div>
           </div>
         )}
 
-        {/* Footer Actions */}
-        {!orderCompletedNumber && cart.length > 0 && (
+        {/* FOOTER FIXO COM AÇÃO DE FINALIZAR */}
+        {!completedOrder && cart.length > 0 && (
           <div className="p-5 bg-[#FAF7F3] border-t border-[#E8D5C4] space-y-3 shrink-0">
-            <div className="flex justify-between text-[#3D1F0D] font-bold text-base">
-              <span>Total da Encomenda</span>
-              <span className="font-sans">{formatCurrency(cartTotal)}</span>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-[#7A5A43]">
+                <span>Total dos Produtos</span>
+                <span>{formatCurrency(cartTotal)}</span>
+              </div>
+
+              {isHalfDeposit && (
+                <div className="flex justify-between text-xs text-amber-900 font-medium">
+                  <span>Sinal de 50% a pagar agora</span>
+                  <span className="font-bold">{formatCurrency(amountToPayNow)}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between text-[#2E1609] font-bold text-base pt-1 border-t border-[#E8D5C4]">
+                <span>{isHalfDeposit ? 'Valor a Pagar Agora' : 'Total da Encomenda'}</span>
+                <span className="font-sans text-lg">{formatCurrency(amountToPayNow)}</span>
+              </div>
             </div>
 
             <button
               onClick={handleCheckout}
-              disabled={isSubmitting}
-              className="w-full py-3.5 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] active:scale-98 text-[#FAF7F3] font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-70"
+              disabled={isSubmitting || !!blockedDateInfo}
+              className="w-full py-3.5 rounded-xl bg-[#2E1609] hover:bg-[#1F1108] active:scale-98 text-[#FAF7F3] font-medium text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
-              <span>Enviar Pedido pelo WhatsApp</span>
+              <span>
+                {isSubmitting
+                  ? 'Processando Pedido...'
+                  : blockedDateInfo
+                  ? 'Data Indisponível (Selecione Outra)'
+                  : isHalfDeposit
+                  ? `Confirmar Encomenda com Sinal (${formatCurrency(amountToPayNow)})`
+                  : `Confirmar Encomenda (${formatCurrency(cartTotal)})`}
+              </span>
             </button>
           </div>
         )}

@@ -21,6 +21,24 @@ export const initialSettings: StoreSettings = {
   pixKey: '44999739472',
   pixKeyType: 'phone',
   pixReceiverName: 'Ana Melo',
+  pixCity: 'MARINGA',
+
+  // Pagamento Cartão (Link Direto)
+  enableCardPayment: true,
+  cardPaymentLink: 'https://link.mercadopago.com.br/anameloconfeitaria',
+
+  // Regra de Encomendas (Sinal 50% + 50% na véspera)
+  enableHalfDepositForPreOrders: true,
+
+  // Prazos Mínimos de Antecedência
+  minNoticeDaysSweets: 2, // 2 dias de antecedência para doces de festa
+  minNoticeDaysCakes: 3,  // 3 dias de antecedência para bolos decorados
+
+  // Datas com Capacidade Esgotada ou Fechamento
+  blockedDates: [
+    { id: 'blk-1', date: '2026-12-25', reason: 'Natal (Ateliê Fechado)' },
+    { id: 'blk-2', date: '2026-12-26', reason: 'Férias Ateliê' },
+  ],
   defaultDeliveryFee: 0,
   freeDeliveryMinAmount: 0,
   minNoticeHoursReady: 2,
