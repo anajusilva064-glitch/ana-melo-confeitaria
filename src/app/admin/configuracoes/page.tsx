@@ -1,8 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useStore } from '@/context/StoreContext';
 import { formatCurrency } from '@/lib/utils';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import {
+  listAdminUsers,
+  approveUserAccess,
+  rejectUserAccess,
+  deleteUserAccess,
+  AdminUserProfile,
+} from '@/lib/supabase-auth';
 import {
   Settings,
   Save,
@@ -19,6 +27,11 @@ import {
   Plus,
   Trash2,
   AlertTriangle,
+  Users,
+  UserCheck,
+  UserX,
+  RefreshCw,
+  KeyRound,
 } from 'lucide-react';
 
 export default function AdminConfiguracoesPage() {
@@ -26,6 +39,62 @@ export default function AdminConfiguracoesPage() {
 
   const [formData, setFormData] = useState(settings);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  // Estado para gestão de usuários Supabase
+  const [adminUsers, setAdminUsers] = useState<AdminUserProfile[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userActionMessage, setUserActionMessage] = useState<string | null>(null);
+
+  const fetchUsers = async () => {
+    if (!isSupabaseConfigured) return;
+    setIsLoadingUsers(true);
+    const users = await listAdminUsers();
+    setAdminUsers(users);
+    setIsLoadingUsers(false);
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleApprove = async (userId: string) => {
+    setUserActionMessage(null);
+    const ok = await approveUserAccess(userId, 'current-admin');
+    if (ok) {
+      setUserActionMessage('Usuário aprovado com sucesso!');
+      await fetchUsers();
+    } else {
+      setUserActionMessage('Erro ao aprovar usuário.');
+    }
+    setTimeout(() => setUserActionMessage(null), 3500);
+  };
+
+  const handleReject = async (userId: string) => {
+    setUserActionMessage(null);
+    const ok = await rejectUserAccess(userId);
+    if (ok) {
+      setUserActionMessage('Acesso do usuário recusado/revogado.');
+      await fetchUsers();
+    } else {
+      setUserActionMessage('Erro ao alterar status do usuário.');
+    }
+    setTimeout(() => setUserActionMessage(null), 3500);
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Deseja realmente remover o registro deste usuário da lista de autorizações?')) {
+      return;
+    }
+    setUserActionMessage(null);
+    const ok = await deleteUserAccess(userId);
+    if (ok) {
+      setUserActionMessage('Usuário removido da lista.');
+      await fetchUsers();
+    } else {
+      setUserActionMessage('Erro ao excluir usuário.');
+    }
+    setTimeout(() => setUserActionMessage(null), 3500);
+  };
 
   // Estado para novo bloqueio de data
   const [newBlockDate, setNewBlockDate] = useState('');
@@ -588,6 +657,184 @@ export default function AdminConfiguracoesPage() {
               As encomendas preenchidas pelo parceiro nas abas mensais do Excel (como Vanessa, Mariana, Fabio, Amanda) são lidas em tempo real e convertidas em pedidos com data, quantidade e valores no <strong>Calendário & Kanban de Encomendas</strong>.
             </p>
           </div>
+        </div>
+
+        {/* Gestão de Usuários e Autorizações (Supabase Auth) */}
+        <div className="p-6 rounded-2xl bg-white border border-[#D5BFA8] shadow-2xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EFE4D8] pb-4 gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-[#FAF7F3] border border-[#D5BFA8] flex items-center justify-center text-[#2E1609]">
+                <Users className="w-5 h-5 text-[#C69255]" />
+              </div>
+              <div>
+                <h2 className="font-serif text-base font-bold text-[#2E1609] flex items-center gap-2">
+                  <span>Controle de Acesso e Usuários (Supabase Auth)</span>
+                  <span className="text-[11px] font-normal px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    Aprovação Obrigatória
+                  </span>
+                </h2>
+                <p className="text-xs text-[#7A5A43]">
+                  Apenas usuários aprovados pelo administrador conseguem entrar no sistema.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={fetchUsers}
+              disabled={isLoadingUsers}
+              className="px-3 py-1.5 rounded-xl border border-[#D5BFA8] hover:bg-[#FAF7F3] text-xs font-semibold text-[#2E1609] flex items-center gap-1.5 self-start sm:self-auto transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingUsers ? 'animate-spin' : ''}`} />
+              <span>Atualizar Lista</span>
+            </button>
+          </div>
+
+          {userActionMessage && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600" />
+              <span>{userActionMessage}</span>
+            </div>
+          )}
+
+          {!isSupabaseConfigured ? (
+            <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs space-y-2">
+              <p className="font-semibold text-amber-950 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                Supabase ainda não configurado no .env.local
+              </p>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Para ativar a listagem e aprovação em tempo real pelo banco de dados, insira suas credenciais do Supabase no arquivo <code>.env.local</code> e execute o script <code>supabase_setup.sql</code> no seu SQL Editor do Supabase.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {adminUsers.length === 0 ? (
+                <div className="text-center py-6 border border-dashed border-[#D5BFA8] rounded-xl text-xs text-[#7A5A43] space-y-1">
+                  <p className="font-medium text-[#2E1609]">Nenhum usuário cadastrado na tabela de autorização ainda.</p>
+                  <p className="text-[11px]">Quando novos colaboradores solicitarem acesso na tela de login, eles aparecerão aqui para sua aprovação.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-[#EFE4D8] text-[#7A5A43] font-semibold">
+                        <th className="pb-2.5">Nome / Colaborador</th>
+                        <th className="pb-2.5">E-mail</th>
+                        <th className="pb-2.5">Status de Acesso</th>
+                        <th className="pb-2.5">Data Solicitação</th>
+                        <th className="pb-2.5 text-right">Ações do Administrador</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#F5ECE1]">
+                      {adminUsers.map((user) => {
+                        const isApproved = user.is_approved && user.role === 'admin';
+                        const isPending = user.role === 'pending' || (!user.is_approved && user.role !== 'rejected');
+                        const isRejected = user.role === 'rejected';
+
+                        return (
+                          <tr key={user.id} className="hover:bg-[#FAF7F3]/60 transition-colors">
+                            <td className="py-3 font-medium text-[#2E1609]">
+                              {user.full_name || 'Sem nome informado'}
+                            </td>
+                            <td className="py-3 text-[#5A3825] font-mono text-[11px]">
+                              {user.email}
+                            </td>
+                            <td className="py-3">
+                              {isApproved && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  <UserCheck className="w-3 h-3 text-emerald-600" />
+                                  Aprovado (Admin)
+                                </span>
+                              )}
+                              {isPending && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  Pendente Aprovação
+                                </span>
+                              )}
+                              {isRejected && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
+                                  <UserX className="w-3 h-3 text-rose-600" />
+                                  Acesso Recusado
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 text-[#7A5A43] text-[11px]">
+                              {user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '-'}
+                            </td>
+                            <td className="py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {isPending && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApprove(user.id)}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                                      title="Autorizar este usuário a acessar o painel"
+                                    >
+                                      <UserCheck className="w-3 h-3" />
+                                      <span>Aprovar</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleReject(user.id)}
+                                      className="px-2.5 py-1 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-800 border border-rose-300 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                                      title="Recusar solicitação de acesso"
+                                    >
+                                      <UserX className="w-3 h-3" />
+                                      <span>Recusar</span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {isApproved && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReject(user.id)}
+                                    className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-rose-50 text-[#7A5A43] hover:text-rose-700 border border-[#D5BFA8] font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                                    title="Revogar acesso deste administrador"
+                                  >
+                                    <Ban className="w-3 h-3" />
+                                    <span>Revogar Acesso</span>
+                                  </button>
+                                )}
+
+                                {isRejected && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApprove(user.id)}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] flex items-center gap-1 transition-colors"
+                                    title="Reativar e aprovar acesso"
+                                  >
+                                    <UserCheck className="w-3 h-3" />
+                                    <span>Reaprovar</span>
+                                  </button>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUser(user.id)}
+                                  className="p-1 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1"
+                                  title="Excluir da lista"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <div className="p-3 rounded-xl bg-[#FAF7F3] border border-[#EFE4D8] text-[11px] text-[#7A5A43] flex items-center justify-between">
+                <span>💡 <strong>Dica de Segurança:</strong> Você também pode aprovar usuários manualmente no SQL Editor do Supabase usando o arquivo <code>supabase_setup.sql</code>.</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Submit Button */}

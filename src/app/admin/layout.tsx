@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { logoutAdmin, AdminUserProfile } from '@/lib/supabase-auth';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -18,6 +20,8 @@ import {
   ChevronRight,
   LogOut,
   Bell,
+  ShieldCheck,
+  UserCheck,
 } from 'lucide-react';
 
 const navItems = [
@@ -37,6 +41,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const { settings, orders, ingredients } = useStore();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [currentUser, setCurrentUser] = useState<AdminUserProfile | null>(null);
 
   useEffect(() => {
     if (pathname === '/admin/login') {
@@ -44,13 +49,91 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
-    const auth = sessionStorage.getItem('ana_melo_admin_auth');
-    if (auth === 'true') {
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-      router.push('/admin/login');
+    let isMounted = true;
+
+    async function checkAuth() {
+      // 1. Se o Supabase estiver configurado, valida a sessão e se o usuário está aprovado
+      if (supabase && isSupabaseConfigured) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.user) {
+            if (isMounted) {
+              setIsAuthenticated(false);
+              router.push('/admin/login');
+            }
+            return;
+          }
+
+          // Busca perfil do usuário em admin_users
+          const { data: profile } = await supabase
+            .from('admin_users')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          // Acesso só é permitido se is_approved for true
+          if (profile && profile.is_approved) {
+            if (isMounted) {
+              setCurrentUser(profile as AdminUserProfile);
+              setIsAuthenticated(true);
+            }
+          } else {
+            // Se o usuário não está aprovado pelo administrador, desconecta imediatamente
+            await supabase.auth.signOut();
+            if (isMounted) {
+              setIsAuthenticated(false);
+              router.push('/admin/login');
+            }
+          }
+        } catch {
+          if (isMounted) {
+            setIsAuthenticated(false);
+            router.push('/admin/login');
+          }
+        }
+      } else {
+        // Fallback para desenvolvimento local caso o Supabase não esteja ativo
+        const auth = sessionStorage.getItem('ana_melo_admin_auth');
+        if (auth === 'true') {
+          setIsAuthenticated(true);
+          const email = sessionStorage.getItem('ana_melo_admin_user') || 'Administrador';
+          setCurrentUser({
+            id: 'local-admin',
+            email,
+            full_name: 'Administrador Confeitaria',
+            role: 'admin',
+            is_approved: true,
+            approved_by: null,
+            approved_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+          });
+        } else {
+          setIsAuthenticated(false);
+          router.push('/admin/login');
+        }
+      }
     }
+
+    checkAuth();
+
+    // Listener para mudanças de estado de autenticação no Supabase
+    let authListener: { subscription: { unsubscribe: () => void } } | null = null;
+    if (supabase && isSupabaseConfigured) {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT' || !session) {
+          if (pathname !== '/admin/login') {
+            setIsAuthenticated(false);
+            router.push('/admin/login');
+          }
+        }
+      });
+      authListener = data;
+    }
+
+    return () => {
+      isMounted = false;
+      authListener?.subscription?.unsubscribe();
+    };
   }, [pathname, router]);
 
   // Se estiver na tela de login, renderiza apenas o conteúdo de login sem sidebar
@@ -62,7 +145,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (isAuthenticated === null) {
     return (
       <div className="min-h-screen bg-[#1F1108] flex items-center justify-center text-[#D8C4B2] text-xs">
-        Carregando painel de gestão...
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[#C69255] border-t-transparent animate-spin" />
+          <span>Verificando credenciais e autorização no Supabase...</span>
+        </div>
       </div>
     );
   }
@@ -72,9 +158,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return null;
   }
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('ana_melo_admin_auth');
-    sessionStorage.removeItem('ana_melo_admin_user');
+  const handleLogout = async () => {
+    await logoutAdmin();
     router.push('/admin/login');
   };
 
@@ -187,6 +272,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <span>{receivedOrdersCount} novo(s) pedido(s)</span>
               </div>
             )}
+            
+            {currentUser && (
+              <div className="hidden sm:flex flex-col text-right">
+                <span className="text-xs font-semibold text-[#3D1F0D]">
+                  {currentUser.full_name || currentUser.email}
+                </span>
+                <span className="text-[10px] text-emerald-700 font-medium flex items-center justify-end gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  Admin Autorizado
+                </span>
+              </div>
+            )}
+
             <div className="w-8 h-8 rounded-full overflow-hidden border border-[#D5BFA8]">
               <img src="/icon.jpg" alt="Ana Melo" className="w-full h-full object-cover" />
             </div>
