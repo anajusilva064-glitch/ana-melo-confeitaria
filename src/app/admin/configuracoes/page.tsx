@@ -9,6 +9,7 @@ import {
   approveUserAccess,
   rejectUserAccess,
   deleteUserAccess,
+  updateAdminPassword,
   AdminUserProfile,
 } from '@/lib/supabase-auth';
 import {
@@ -44,6 +45,35 @@ export default function AdminConfiguracoesPage() {
   const [adminUsers, setAdminUsers] = useState<AdminUserProfile[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [userActionMessage, setUserActionMessage] = useState<string | null>(null);
+
+  // Estado para redefinição de senha pelo próprio administrador
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState<{ success?: boolean; message?: string } | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPasswordInput || newPasswordInput.length < 6) {
+      setPasswordStatus({ success: false, message: 'A senha deve ter pelo menos 6 caracteres.' });
+      return;
+    }
+    if (newPasswordInput !== confirmPasswordInput) {
+      setPasswordStatus({ success: false, message: 'As senhas não coincidem. Digite a mesma senha nos dois campos.' });
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+    setPasswordStatus(null);
+    const res = await updateAdminPassword(newPasswordInput);
+    setIsUpdatingPassword(false);
+    setPasswordStatus(res);
+    if (res.success) {
+      setNewPasswordInput('');
+      setConfirmPasswordInput('');
+      setTimeout(() => setPasswordStatus(null), 4000);
+    }
+  };
 
   const fetchUsers = async () => {
     if (!isSupabaseConfigured) return;
@@ -657,6 +687,79 @@ export default function AdminConfiguracoesPage() {
               As encomendas preenchidas pelo parceiro nas abas mensais do Excel (como Vanessa, Mariana, Fabio, Amanda) são lidas em tempo real e convertidas em pedidos com data, quantidade e valores no <strong>Calendário & Kanban de Encomendas</strong>.
             </p>
           </div>
+        </div>
+
+        {/* Alterar Senha de Acesso do Administrador */}
+        <div className="p-6 rounded-2xl bg-white border border-[#D5BFA8] shadow-2xs space-y-4">
+          <div className="flex items-center gap-2.5 border-b border-[#EFE4D8] pb-4">
+            <div className="w-9 h-9 rounded-xl bg-[#FAF7F3] border border-[#D5BFA8] flex items-center justify-center text-[#2E1609]">
+              <KeyRound className="w-5 h-5 text-[#C69255]" />
+            </div>
+            <div>
+              <h2 className="font-serif text-base font-bold text-[#2E1609]">
+                Minha Senha de Acesso (Supabase)
+              </h2>
+              <p className="text-xs text-[#7A5A43]">
+                Defina ou altere sua senha de login a qualquer momento diretamente por aqui.
+              </p>
+            </div>
+          </div>
+
+          {passwordStatus && (
+            <div className={`p-3.5 rounded-xl border text-xs flex items-center gap-2 ${
+              passwordStatus.success
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                : 'bg-rose-50 border-rose-300 text-rose-900'
+            }`}>
+              {passwordStatus.success ? (
+                <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{passwordStatus.message}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleUpdatePassword} className="space-y-4 max-w-lg">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#2E1609] mb-1.5">
+                  Nova Senha (Mín. 6 caracteres)
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPasswordInput}
+                  onChange={(e) => setNewPasswordInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] bg-[#FAF7F3] text-xs text-[#2E1609] focus:outline-hidden focus:border-[#C69255]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#2E1609] mb-1.5">
+                  Confirmar Nova Senha
+                </label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmPasswordInput}
+                  onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] bg-[#FAF7F3] text-xs text-[#2E1609] focus:outline-hidden focus:border-[#C69255]"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isUpdatingPassword}
+              className="px-5 py-2.5 rounded-xl bg-[#2E1609] hover:bg-[#3D1F0D] text-white text-xs font-semibold flex items-center gap-2 shadow-xs transition-colors disabled:opacity-50"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-[#C69255]" />
+              <span>{isUpdatingPassword ? 'Salvando nova senha...' : 'Atualizar Minha Senha'}</span>
+            </button>
+          </form>
         </div>
 
         {/* Gestão de Usuários e Autorizações (Supabase Auth) */}

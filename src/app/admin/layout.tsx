@@ -50,6 +50,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const search = window.location.search || '';
+      if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+        router.push(`/admin/login?mode=reset${hash || search}`);
+        return;
+      }
+    }
+
     let isMounted = true;
 
     async function checkAuth() {

@@ -293,7 +293,7 @@ export async function resendConfirmationEmail(email: string): Promise<{ success:
 }
 
 /**
- * Solicita recuperação de senha por e-mail
+ * Solicita recuperação de senha por e-mail com redirecionamento para definição de nova senha
  */
 export async function sendPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
   if (!supabase || !isSupabaseConfigured) {
@@ -304,18 +304,57 @@ export async function sendPasswordReset(email: string): Promise<{ success: boole
   }
 
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+    const redirectUrl = typeof window !== 'undefined'
+      ? `${window.location.origin}/admin/login?mode=reset`
+      : undefined;
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: redirectUrl,
+    });
     if (error) {
       return { success: false, message: error.message };
     }
     return {
       success: true,
-      message: 'E-mail de recuperação enviado! Verifique sua caixa de entrada.',
+      message: 'E-mail de recuperação enviado! Clique no link do e-mail para cadastrar sua nova senha.',
     };
   } catch (err: unknown) {
     return {
       success: false,
       message: err instanceof Error ? err.message : 'Erro ao enviar e-mail de recuperação.',
+    };
+  }
+}
+
+/**
+ * Atualiza a senha do usuário autenticado no Supabase
+ */
+export async function updateAdminPassword(newPassword: string): Promise<{ success: boolean; message: string }> {
+  if (!supabase || !isSupabaseConfigured) {
+    return { success: false, message: 'Supabase não configurado.' };
+  }
+
+  if (!newPassword || newPassword.length < 6) {
+    return { success: false, message: 'A nova senha deve ter no mínimo 6 caracteres.' };
+  }
+
+  try {
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return {
+      success: true,
+      message: 'Nova senha cadastrada com sucesso! Seu acesso já está atualizado.',
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Erro ao atualizar a senha.',
     };
   }
 }

@@ -21,10 +21,11 @@ import {
   registerAdminRequest,
   sendPasswordReset,
   resendConfirmationEmail,
+  updateAdminPassword,
 } from '@/lib/supabase-auth';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
-type Mode = 'login' | 'register' | 'forgot';
+type Mode = 'login' | 'register' | 'forgot' | 'reset';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -34,6 +35,8 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -42,13 +45,30 @@ export default function AdminLoginPage() {
   const [isResending, setIsResending] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Se o usuário já tiver uma sessão válida (ex: acabou de confirmar o e-mail no navegador), redireciona direto para o admin
+  // Escuta retornos de autenticação do Supabase (ex: link de recuperação de senha ou confirmação de email)
   useEffect(() => {
+    // 1. Verifica se veio com parâmetro de redefinição de senha ou token de recuperação
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash || '';
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('mode') === 'reset' || hash.includes('type=recovery')) {
+        setMode('reset');
+        return;
+      }
+    }
+
     const client = supabase;
     if (!client || !isSupabaseConfigured) return;
 
     const checkActiveSession = async () => {
       try {
+        const hash = typeof window !== 'undefined' ? window.location.hash : '';
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        if (params?.get('mode') === 'reset' || hash.includes('type=recovery')) {
+          setMode('reset');
+          return;
+        }
+
         const { data: { session } } = await client.auth.getSession();
         if (session?.user && session.user.email_confirmed_at) {
           router.push('/admin');
@@ -61,8 +81,14 @@ export default function AdminLoginPage() {
     checkActiveSession();
 
     const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
-      if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
-        router.push('/admin');
+      if (event === 'PASSWORD_RECOVERY') {
+        setMode('reset');
+      } else if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+        const hash = typeof window !== 'undefined' ? window.location.hash : '';
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        if (params?.get('mode') !== 'reset' && !hash.includes('type=recovery')) {
+          router.push('/admin');
+        }
       }
     });
 
@@ -183,6 +209,36 @@ export default function AdminLoginPage() {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || newPassword.length < 6) {
+      setError('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('As senhas não coincidem. Digite a mesma senha nos dois campos.');
+      return;
+    }
+
+    setIsLoading(true);
+    resetFeedback();
+
+    const res = await updateAdminPassword(newPassword);
+    setIsLoading(false);
+
+    if (res.success) {
+      setSuccessMsg(res.message);
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('ana_melo_admin_auth', 'true');
+      }
+      setTimeout(() => {
+        router.push('/admin');
+      }, 1200);
+    } else {
+      setError(res.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#1F1108] text-[#FAF7F3] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-[#2C1407] rounded-3xl border border-[#4A2810] shadow-2xl p-6 sm:p-8 space-y-6">
@@ -222,47 +278,54 @@ export default function AdminLoginPage() {
         )}
 
         {/* Mode Selector Tabs */}
-        <div className="flex bg-[#1F1108] p-1 rounded-xl border border-[#4A2810] text-xs">
-          <button
-            type="button"
-            onClick={() => {
-              setMode('login');
-              resetFeedback();
-            }}
-            className={`flex-1 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1.5 ${
-              mode === 'login'
-                ? 'bg-[#3D1F0D] text-[#C69255] shadow-xs'
-                : 'text-[#B59F8B] hover:text-white'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Entrar</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('register');
-              resetFeedback();
-            }}
-            className={`flex-1 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1.5 ${
-              mode === 'register'
-                ? 'bg-[#3D1F0D] text-[#C69255] shadow-xs'
-                : 'text-[#B59F8B] hover:text-white'
-            }`}
-          >
-            {isFirstSetup ? (
-              <>
-                <Crown className="w-3.5 h-3.5 text-amber-400" />
-                <span className="text-amber-300 font-semibold">Criar Admin Master</span>
-              </>
-            ) : (
-              <>
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Solicitar Acesso</span>
-              </>
-            )}
-          </button>
-        </div>
+        {mode !== 'reset' ? (
+          <div className="flex bg-[#1F1108] p-1 rounded-xl border border-[#4A2810] text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                resetFeedback();
+              }}
+              className={`flex-1 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                mode === 'login'
+                  ? 'bg-[#3D1F0D] text-[#C69255] shadow-xs'
+                  : 'text-[#B59F8B] hover:text-white'
+              }`}
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Entrar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('register');
+                resetFeedback();
+              }}
+              className={`flex-1 py-2 rounded-lg font-medium transition-colors flex items-center justify-center gap-1.5 ${
+                mode === 'register'
+                  ? 'bg-[#3D1F0D] text-[#C69255] shadow-xs'
+                  : 'text-[#B59F8B] hover:text-white'
+              }`}
+            >
+              {isFirstSetup ? (
+                <>
+                  <Crown className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-amber-300 font-semibold">Criar Admin Master</span>
+                </>
+              ) : (
+                <>
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Solicitar Acesso</span>
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-2xl bg-[#3D2514] border border-[#C69255]/40 flex items-center justify-center gap-2 text-xs text-[#C69255] font-semibold">
+            <KeyRound className="w-4 h-4 text-[#C69255]" />
+            <span>Redefinir Senha de Administrador</span>
+          </div>
+        )}
 
         {/* Supabase Status Alert (Se não configurado) */}
         {!isSupabaseConfigured && (
@@ -515,6 +578,76 @@ export default function AdminLoginPage() {
               >
                 <KeyRound className="w-4 h-4" />
                 <span>{isLoading ? 'Enviando e-mail...' : 'Enviar Link de Redefinição'}</span>
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* MODE: RESET PASSWORD */}
+        {mode === 'reset' && (
+          <form onSubmit={handleResetPassword} className="space-y-4 text-xs">
+            <div className="p-3.5 rounded-2xl bg-[#3D2514] border border-[#C69255]/40 text-xs space-y-1.5">
+              <div className="flex items-center gap-2 text-[#C69255] font-semibold">
+                <KeyRound className="w-4 h-4 text-[#C69255]" />
+                <span>Cadastrar Nova Senha</span>
+              </div>
+              <p className="text-[#D8C4B2] text-[11px] leading-relaxed">
+                Você acessou com o link de recuperação. Digite e confirme sua nova senha abaixo para salvar no Supabase.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-[#D8C4B2] font-medium mb-1.5">
+                Nova Senha (Mínimo 6 caracteres)
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-[#8A725E] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#1F1108] border border-[#5C3317] text-white text-xs sm:text-sm focus:outline-hidden focus:border-[#C69255]"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[#D8C4B2] font-medium mb-1.5">
+                Confirmar Nova Senha
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-[#8A725E] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-[#1F1108] border border-[#5C3317] text-white text-xs sm:text-sm focus:outline-hidden focus:border-[#C69255]"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('login');
+                  resetFeedback();
+                }}
+                className="px-4 py-3 rounded-xl bg-[#1F1108] border border-[#4A2810] text-[#D8C4B2] hover:text-white font-semibold text-xs transition-colors"
+              >
+                Voltar
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex-1 py-3.5 rounded-xl bg-[#C69255] hover:bg-[#B8803F] text-white font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all active:scale-98 disabled:opacity-70"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{isLoading ? 'Salvando nova senha...' : 'Salvar Nova Senha & Entrar'}</span>
               </button>
             </div>
           </form>

@@ -14,11 +14,18 @@ export function AuthRedirectHandler() {
     const hash = window.location.hash || '';
     const search = window.location.search || '';
 
-    // Detecta se a URL contém tokens de retorno do Supabase Auth (ex: clique no link de e-mail)
+    // Se for recuperação de senha, redireciona OBRIGATORIAMENTE para a tela de redefinir nova senha
+    if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+      if (pathname !== '/admin/login' || !window.location.search.includes('mode=reset')) {
+        router.push(`/admin/login?mode=reset${hash || search}`);
+        return;
+      }
+    }
+
+    // Outros callbacks de autenticação (ex: clique no link de confirmação de cadastro)
     const isSupabaseAuthCallback =
       hash.includes('access_token') ||
       hash.includes('type=signup') ||
-      hash.includes('type=recovery') ||
       hash.includes('type=invite') ||
       search.includes('code=');
 
