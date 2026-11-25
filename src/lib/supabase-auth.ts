@@ -39,6 +39,12 @@ export async function loginAdmin(email: string, password: string): Promise<AuthR
     });
 
     if (authError || !authData.user) {
+      if (authError?.message?.includes('Email not confirmed') || (authError as { code?: string })?.code === 'email_not_confirmed') {
+        return {
+          success: false,
+          message: 'E-mail ainda não confirmado. Verifique a caixa de entrada do seu e-mail ou confirme o usuário no painel do Supabase.',
+        };
+      }
       if (authError?.message?.includes('Invalid login credentials')) {
         return {
           success: false,
