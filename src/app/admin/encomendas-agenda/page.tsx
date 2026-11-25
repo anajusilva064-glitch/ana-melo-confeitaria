@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useStore } from '@/context/StoreContext';
-import { Order, OrderStatus } from '@/types';
+import { Order, OrderStatus, BlockedDate } from '@/types';
 import { formatCurrency, formatDateTime, isScheduledOrder } from '@/lib/utils';
 import {
   Calendar as CalendarIcon,
@@ -31,6 +31,7 @@ import {
   ShieldCheck,
   CreditCard,
   QrCode,
+  Trash2,
 } from 'lucide-react';
 import { sendAutomaticWhatsAppNotification } from '@/lib/whatsapp';
 
@@ -69,6 +70,7 @@ export default function AdminEncomendasAgendaPage() {
     markOrderRemainingPaid,
     addBlockedDate,
     removeBlockedDate,
+    updateSettings,
   } = useStore();
 
   // Estados de Visualização
@@ -87,6 +89,66 @@ export default function AdminEncomendasAgendaPage() {
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+
+  // Estados de Bloqueio de Período / Fechamento de Agenda (do Dia X ao Dia Y)
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState<boolean>(false);
+  const [blockStartDate, setBlockStartDate] = useState<string>('');
+  const [blockEndDate, setBlockEndDate] = useState<string>('');
+  const [blockReason, setBlockReason] = useState<string>('Capacidade Esgotada');
+
+  const handleBlockPeriod = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!blockStartDate) {
+      alert('Por favor, selecione a data inicial.');
+      return;
+    }
+
+    const start = new Date(blockStartDate + 'T00:00:00');
+    const end = blockEndDate ? new Date(blockEndDate + 'T00:00:00') : new Date(start);
+
+    if (start > end) {
+      alert('A data inicial não pode ser posterior à data final.');
+      return;
+    }
+
+    const existing = new Set((settings.blockedDates || []).map((b) => b.date));
+    const toAdd: BlockedDate[] = [];
+    const curr = new Date(start);
+
+    while (curr <= end) {
+      const dStr = curr.toISOString().split('T')[0];
+      if (!existing.has(dStr)) {
+        toAdd.push({
+          id: `blk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          date: dStr,
+          reason: blockReason.trim() || 'Capacidade Esgotada / Fechado',
+        });
+        existing.add(dStr);
+      }
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    if (toAdd.length > 0) {
+      updateSettings({
+        blockedDates: [...(settings.blockedDates || []), ...toAdd],
+      });
+      setSyncToast(`${toAdd.length} dia(s) bloqueado(s) na agenda com sucesso!`);
+      setTimeout(() => setSyncToast(null), 3000);
+    } else {
+      setSyncToast('As datas selecionadas já estavam bloqueadas.');
+      setTimeout(() => setSyncToast(null), 3000);
+    }
+
+    setBlockStartDate('');
+    setBlockEndDate('');
+    setIsBlockModalOpen(false);
+  };
+
+  const handleUnblockDate = (id: string) => {
+    removeBlockedDate(id);
+    setSyncToast('Data liberada na agenda com sucesso!');
+    setTimeout(() => setSyncToast(null), 3000);
+  };
 
   // Formulário de Nova Encomenda
   const [newOrderForm, setNewOrderForm] = useState({
@@ -350,6 +412,21 @@ export default function AdminEncomendasAgendaPage() {
             </a>
           )}
 
+          {/* Fechar Agenda / Bloquear Período */}
+          <button
+            onClick={() => setIsBlockModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-900 border border-red-200 font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer shadow-2xs"
+            title="Bloquear período de produção e fechar a agenda (do dia X ao dia Y)"
+          >
+            <Ban className="w-3.5 h-3.5 text-red-600" />
+            <span>Fechar Agenda / Bloquear Datas</span>
+            {(settings.blockedDates?.length || 0) > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold">
+                {settings.blockedDates?.length}
+              </span>
+            )}
+          </button>
+
           {/* New Order */}
           <button
             onClick={() => setIsAddModalOpen(true)}
@@ -360,6 +437,31 @@ export default function AdminEncomendasAgendaPage() {
           </button>
         </div>
       </div>
+
+      {/* Banner de Datas com Agenda Fechada */}
+      {(settings.blockedDates?.length || 0) > 0 && (
+        <div className="p-3.5 px-4 rounded-2xl bg-red-50/90 border border-red-200 flex flex-wrap items-center justify-between gap-3 text-xs text-red-900 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-red-100 border border-red-300 flex items-center justify-center text-red-700 shrink-0">
+              <Ban className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-bold text-red-950">
+                {settings.blockedDates?.length} data(s) com agenda fechada
+              </span>
+              <span className="ml-1.5 text-red-800 text-[11px]">
+                (Clientes na sacola não conseguem agendar encomendas para essas datas).
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsBlockModalOpen(true)}
+            className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-900 border border-red-300 text-[11px] font-bold transition-colors cursor-pointer"
+          >
+            Gerenciar / Liberar Datas →
+          </button>
+        </div>
+      )}
 
       {/* Filter and Origin Badges */}
       <div className="bg-white p-3.5 rounded-2xl border border-[#D5BFA8] shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -507,17 +609,21 @@ export default function AdminEncomendasAgendaPage() {
                     <div className="flex items-center gap-1">
                       {isBlocked ? (
                         <button
-                          onClick={() => removeBlockedDate(isBlocked.id)}
-                          className="opacity-0 group-hover:opacity-100 text-red-700 hover:text-red-950 p-1 text-[10px] font-bold flex items-center gap-0.5 cursor-pointer"
-                          title="Desbloquear esta data"
+                          onClick={() => handleUnblockDate(isBlocked.id)}
+                          className="opacity-0 group-hover:opacity-100 text-red-700 hover:text-red-950 p-1 text-[10px] font-bold flex items-center gap-0.5 cursor-pointer bg-red-100 rounded-md transition-opacity"
+                          title="Reabrir esta data na agenda"
                         >
                           <X className="w-3 h-3" />
                         </button>
                       ) : (
                         <button
-                          onClick={() => addBlockedDate(cell.dateStr!, 'Capacidade Esgotada')}
+                          onClick={() => {
+                            setBlockStartDate(cell.dateStr!);
+                            setBlockEndDate(cell.dateStr!);
+                            setIsBlockModalOpen(true);
+                          }}
                           className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-red-100 text-red-600 transition-opacity cursor-pointer"
-                          title="Bloquear esta data (Capacidade Esgotada)"
+                          title="Fechar agenda nesta data ou período"
                         >
                           <Ban className="w-3 h-3" />
                         </button>
@@ -1126,6 +1232,177 @@ export default function AdminEncomendasAgendaPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================= MODAL: FECHAMENTO DE AGENDA / BLOQUEIO DE PERÍODO (DO DIA X AO DIA Y) ======================= */}
+      {isBlockModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="w-full max-w-xl bg-white rounded-3xl border border-[#D5BFA8] shadow-2xl p-6 sm:p-7 space-y-6 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-[#EFE4D8] pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                  <Ban className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-serif text-lg font-bold text-[#2E1609]">
+                    Fechar Agenda / Bloquear Período
+                  </h2>
+                  <p className="text-xs text-[#7A5A43]">
+                    Selecione do dia X ao dia Y para fechar a agenda de encomendas.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsBlockModalOpen(false)}
+                className="p-1.5 rounded-xl hover:bg-[#FAF7F3] text-[#7A5A43] hover:text-[#2E1609] cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Formulário de Intervalo (Dia X ao Dia Y) */}
+            <form onSubmit={handleBlockPeriod} className="space-y-4">
+              <div className="p-4 rounded-2xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3.5">
+                <span className="text-xs font-bold text-[#2E1609] block">
+                  Definir Período de Fechamento:
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#7A5A43] mb-1">
+                      Do Dia (Data Inicial) *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={blockStartDate}
+                      onChange={(e) => {
+                        setBlockStartDate(e.target.value);
+                        if (!blockEndDate || blockEndDate < e.target.value) {
+                          setBlockEndDate(e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2.5 rounded-xl border border-[#D5BFA8] text-xs bg-white text-[#2E1609] focus:outline-hidden focus:border-red-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-[#7A5A43] mb-1">
+                      Ao Dia (Data Final)
+                    </label>
+                    <input
+                      type="date"
+                      min={blockStartDate}
+                      value={blockEndDate}
+                      onChange={(e) => setBlockEndDate(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border border-[#D5BFA8] text-xs bg-white text-[#2E1609] focus:outline-hidden focus:border-red-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-[#7A5A43] mb-1">
+                    Motivo do Fechamento
+                  </label>
+                  <input
+                    type="text"
+                    value={blockReason}
+                    onChange={(e) => setBlockReason(e.target.value)}
+                    placeholder="Ex: Capacidade Esgotada, Férias do Ateliê, Feriado"
+                    className="w-full px-3 py-2.5 rounded-xl border border-[#D5BFA8] text-xs bg-white text-[#2E1609] focus:outline-hidden focus:border-red-500"
+                  />
+                  {/* Atalhos Rápidos */}
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {['Capacidade Esgotada', 'Férias do Ateliê', 'Feriado / Recesso', 'Evento Exclusivo', 'Manutenção'].map((reason) => (
+                      <button
+                        key={reason}
+                        type="button"
+                        onClick={() => setBlockReason(reason)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold border transition-colors cursor-pointer ${
+                          blockReason === reason
+                            ? 'bg-red-100 text-red-900 border-red-300'
+                            : 'bg-white text-[#7A5A43] border-[#E8D5C4] hover:bg-[#FAF7F3]'
+                        }`}
+                      >
+                        {reason}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
+                  >
+                    <Ban className="w-4 h-4" />
+                    <span>Fechar Agenda no Período Selecionado</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Lista de Datas Atualmente Fechadas */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#2E1609]">
+                  Datas Atualmente Fechadas ({settings.blockedDates?.length || 0}):
+                </span>
+                {(settings.blockedDates?.length || 0) > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('Deseja realmente reabrir todas as datas da agenda?')) {
+                        updateSettings({ blockedDates: [] });
+                        setSyncToast('Todas as datas foram liberadas na agenda!');
+                        setTimeout(() => setSyncToast(null), 3000);
+                      }
+                    }}
+                    className="text-[11px] font-semibold text-red-600 hover:text-red-900 underline cursor-pointer"
+                  >
+                    Reabrir Todas
+                  </button>
+                )}
+              </div>
+
+              {settings.blockedDates && settings.blockedDates.length > 0 ? (
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                  {settings.blockedDates
+                    .slice()
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                    .map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2.5 px-3 rounded-xl border border-red-200 bg-red-50/70 text-xs"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="font-mono font-bold text-red-900 bg-red-100 px-2 py-0.5 rounded-md text-[11px] shrink-0">
+                            {item.date.split('-').reverse().join('/')}
+                          </span>
+                          <span className="text-red-800 font-medium text-[11px] truncate">
+                            {item.reason || 'Capacidade Esgotada'}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleUnblockDate(item.id)}
+                          className="p-1.5 text-red-600 hover:text-red-950 rounded-lg hover:bg-red-200 transition-colors shrink-0 cursor-pointer"
+                          title="Reabrir esta data"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="p-4 text-center text-xs text-[#7A5A43] bg-[#FAF7F3] rounded-xl border border-[#E8D5C4]">
+                  Nenhuma data fechada. A agenda está 100% aberta para encomendas.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -126,10 +126,6 @@ export default function AdminConfiguracoesPage() {
     setTimeout(() => setUserActionMessage(null), 3500);
   };
 
-  // Estado para novo bloqueio de data
-  const [newBlockDate, setNewBlockDate] = useState('');
-  const [newBlockReason, setNewBlockReason] = useState('Capacidade Esgotada');
-
   React.useEffect(() => {
     setFormData(settings);
   }, [settings]);
@@ -139,37 +135,6 @@ export default function AdminConfiguracoesPage() {
     updateSettings(formData);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
-  };
-
-  const handleAddBlockedDate = () => {
-    if (!newBlockDate) {
-      alert('Por favor, selecione uma data para bloquear.');
-      return;
-    }
-    const exists = formData.blockedDates?.some((b) => b.date === newBlockDate);
-    if (exists) {
-      alert('Esta data já está na lista de bloqueios.');
-      return;
-    }
-
-    const updated = [
-      ...(formData.blockedDates || []),
-      {
-        id: `blk-${Date.now()}`,
-        date: newBlockDate,
-        reason: newBlockReason.trim() || 'Capacidade Esgotada',
-      },
-    ];
-
-    setFormData({ ...formData, blockedDates: updated });
-    updateSettings({ blockedDates: updated });
-    setNewBlockDate('');
-  };
-
-  const handleRemoveBlockedDate = (id: string) => {
-    const updated = (formData.blockedDates || []).filter((b) => b.id !== id);
-    setFormData({ ...formData, blockedDates: updated });
-    updateSettings({ blockedDates: updated });
   };
 
   return (
@@ -476,97 +441,8 @@ export default function AdminConfiguracoesPage() {
             </div>
           </div>
           <p className="text-[11px] text-[#7A5A43]">
-            O seletor de data da sacola desabilitará datas anteriores a esse prazo automaticamente.
+            O seletor de data da sacola desabilitará datas anteriores a esse prazo automaticamente. O fechamento e bloqueio de datas da agenda agora é gerenciado diretamente na tela de <strong>Agenda & Calendário de Encomendas</strong>.
           </p>
-        </div>
-
-        {/* BLOQUEIO DE DATAS / CAPACIDADE ESGOTADA / FÉRIAS */}
-        <div className="p-6 rounded-2xl bg-white border border-[#E8D5C4] shadow-2xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#F2E8DF] pb-3">
-            <div className="flex items-center gap-2">
-              <Ban className="w-4 h-4 text-red-600" />
-              <h2 className="font-serif text-base font-bold text-[#2E1609]">
-                Bloqueio de Datas & Fechamento de Agenda
-              </h2>
-            </div>
-            <span className="text-[11px] text-[#7A5A43]">
-              {formData.blockedDates?.length || 0} datas bloqueadas
-            </span>
-          </div>
-
-          <p className="text-xs text-[#7A5A43] leading-relaxed">
-            Feche dias ou semanas específicas quando a capacidade de produção do ateliê estiver esgotada, feriados ou férias. Os clientes não conseguirão agendar pedidos para as datas bloqueadas.
-          </p>
-
-          {/* Adicionar Bloqueio */}
-          <div className="p-4 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3">
-            <span className="text-xs font-semibold text-[#2E1609] block">
-              Adicionar Nova Data para Bloqueio:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <div>
-                <input
-                  type="date"
-                  value={newBlockDate}
-                  onChange={(e) => setNewBlockDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs bg-white focus:outline-hidden"
-                />
-              </div>
-              <div>
-                <input
-                  type="text"
-                  placeholder="Motivo (ex: Capacidade Esgotada, Férias)"
-                  value={newBlockReason}
-                  onChange={(e) => setNewBlockReason(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs bg-white focus:outline-hidden"
-                />
-              </div>
-              <div>
-                <button
-                  type="button"
-                  onClick={handleAddBlockedDate}
-                  className="w-full py-2 bg-[#2E1609] hover:bg-[#1F1108] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Bloquear Data</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Lista de Datas Bloqueadas */}
-          {formData.blockedDates && formData.blockedDates.length > 0 ? (
-            <div className="space-y-2">
-              {formData.blockedDates.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-3 rounded-xl border border-red-200 bg-red-50/60 text-xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-red-900 bg-red-100 px-2.5 py-1 rounded-md">
-                      {item.date.split('-').reverse().join('/')}
-                    </span>
-                    <span className="text-red-800 font-medium">
-                      {item.reason || 'Capacidade Esgotada'}
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveBlockedDate(item.id)}
-                    className="p-1.5 text-red-600 hover:text-red-900 rounded-lg hover:bg-red-100 transition-colors"
-                    title="Desbloquear data"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="p-4 text-center text-xs text-[#7A5A43] bg-[#FAF7F3] rounded-xl border border-[#E8D5C4]">
-              Nenhuma data bloqueada no momento. Todas as datas respeitando o prazo mínimo estão liberadas para encomendas.
-            </div>
-          )}
         </div>
 
         {/* Configurações da API de WhatsApp */}
