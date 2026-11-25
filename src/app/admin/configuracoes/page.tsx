@@ -80,29 +80,26 @@ export default function AdminConfiguracoesPage() {
     }
   };
 
-  // Estados para Conexão Direta WhatsApp (QR Code)
+  // Estados para Conexão Direta WhatsApp (QR Code Nativo)
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'checking'>('checking');
   const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
   const [isLoadingQr, setIsLoadingQr] = useState<boolean>(false);
   const [connectedPhone, setConnectedPhone] = useState<string | null>(null);
-  const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
   const [testPhoneNumber, setTestPhoneNumber] = useState<string>('');
   const [testSendStatus, setTestSendStatus] = useState<string | null>(null);
   const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
 
   const checkWhatsAppStatus = async () => {
     try {
-      const params = new URLSearchParams({
-        apiUrl: formData.whatsappApiUrl || '',
-        apiKey: formData.whatsappApiKey || '',
-        instanceName: formData.whatsappInstanceName || 'anamelo',
-      });
-      const res = await fetch(`/api/whatsapp/status?${params.toString()}`);
+      const res = await fetch('/api/whatsapp/status');
       const data = await res.json();
       if (data.connected) {
         setConnectionStatus('connected');
-        setConnectedPhone(data.phone || 'WhatsApp Conectado');
+        setConnectedPhone(data.numeroConectado || 'WhatsApp Conectado');
         setQrCodeImage(null);
+      } else if (data.status === 'QR_PRONTO' && data.qrCode) {
+        setConnectionStatus('connecting');
+        setQrCodeImage(data.qrCode);
       } else if (connectionStatus !== 'connecting') {
         setConnectionStatus('disconnected');
       }
@@ -117,30 +114,25 @@ export default function AdminConfiguracoesPage() {
     checkWhatsAppStatus();
     const interval = setInterval(() => {
       checkWhatsAppStatus();
-    }, 4000);
+    }, 3500);
     return () => clearInterval(interval);
-  }, [formData.whatsappApiUrl, formData.whatsappApiKey, formData.whatsappInstanceName]);
+  }, []);
 
-  const handleGenerateQrCode = async () => {
+  const handleGenerateQrCode = async (forcarNovo = false) => {
     setIsLoadingQr(true);
     setConnectionStatus('connecting');
-    setQrCodeImage(null);
     try {
       const res = await fetch('/api/whatsapp/qr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiUrl: formData.whatsappApiUrl || '',
-          apiKey: formData.whatsappApiKey || '',
-          instanceName: formData.whatsappInstanceName || 'anamelo',
-        }),
+        body: JSON.stringify({ forcarNovoQr: forcarNovo }),
       });
       const data = await res.json();
-      if (data.qrcode) {
-        setQrCodeImage(data.qrcode);
-      } else {
-        alert(data.error || 'Não foi possível gerar o QR Code.');
-        setConnectionStatus('disconnected');
+      if (data.qrCode) {
+        setQrCodeImage(data.qrCode);
+      } else if (data.connected) {
+        setConnectionStatus('connected');
+        setConnectedPhone(data.numeroConectado);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro na requisição';
@@ -152,17 +144,9 @@ export default function AdminConfiguracoesPage() {
   };
 
   const handleDisconnectWhatsApp = async () => {
-    if (!confirm('Deseja realmente desconectar este WhatsApp?')) return;
+    if (!confirm('Deseja realmente desconectar o WhatsApp do ateliê?')) return;
     try {
-      await fetch('/api/whatsapp/disconnect', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiUrl: formData.whatsappApiUrl || '',
-          apiKey: formData.whatsappApiKey || '',
-          instanceName: formData.whatsappInstanceName || 'anamelo',
-        }),
-      });
+      await fetch('/api/whatsapp/disconnect', { method: 'POST' });
       setConnectionStatus('disconnected');
       setQrCodeImage(null);
       setConnectedPhone(null);
@@ -174,7 +158,7 @@ export default function AdminConfiguracoesPage() {
 
   const handleSendTestMessage = async () => {
     if (!testPhoneNumber.trim()) {
-      alert('Informe um número de telefone com DDD para testar (ex: 44999739472).');
+      alert('Informe um número de WhatsApp com DDD para testar (ex: 44999739472).');
       return;
     }
     setIsSendingTest(true);
@@ -184,11 +168,8 @@ export default function AdminConfiguracoesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          apiUrl: formData.whatsappApiUrl || '',
-          apiKey: formData.whatsappApiKey || '',
-          instanceName: formData.whatsappInstanceName || 'anamelo',
           phone: testPhoneNumber,
-          message: '🎂 *Ana Melo Confeitaria*: Teste de conexão do WhatsApp realizado com sucesso! O sistema está pronto para disparar notificações automáticas.',
+          message: '🎂 *Ana Melo Confeitaria*: Teste de conexão direta do WhatsApp realizado com sucesso! O sistema está pronto para disparar notificações automáticas.',
           orderNumber: '#TESTE',
           status: 'ready',
           customerName: 'Cliente Teste',
@@ -198,7 +179,7 @@ export default function AdminConfiguracoesPage() {
       if (data.success) {
         setTestSendStatus('Mensagem de teste enviada com sucesso no WhatsApp!');
       } else {
-        setTestSendStatus(`Falha no envio: ${data.error || 'Verifique o número'}`);
+        setTestSendStatus(`Falha no envio: ${data.error || 'Verifique se o número possui WhatsApp'}`);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro';
@@ -737,7 +718,7 @@ export default function AdminConfiguracoesPage() {
                 <div className="flex justify-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={handleGenerateQrCode}
+                    onClick={() => handleGenerateQrCode(true)}
                     disabled={isLoadingQr}
                     className="px-4 py-2 rounded-xl bg-white border border-[#D5BFA8] hover:bg-[#EFE4D8] text-xs font-semibold text-[#2E1609] flex items-center gap-1.5 transition-colors"
                   >
@@ -777,75 +758,16 @@ export default function AdminConfiguracoesPage() {
               <div className="pt-2">
                 <button
                   type="button"
-                  onClick={handleGenerateQrCode}
+                  onClick={() => handleGenerateQrCode(true)}
                   disabled={isLoadingQr}
                   className="px-6 py-3 rounded-xl bg-[#2E1609] hover:bg-[#1F1108] text-white text-xs font-bold flex items-center justify-center gap-2 mx-auto shadow-sm transition-all cursor-pointer"
                 >
                   <QrCode className="w-4 h-4 text-[#C69255]" />
-                  <span>Gerar QR Code para Conectar WhatsApp</span>
+                  <span>{isLoadingQr ? 'Gerando QR Code...' : 'Gerar QR Code para Conectar WhatsApp'}</span>
                 </button>
               </div>
             </div>
           )}
-
-          {/* Configurações Avançadas do Servidor (Cotafacil / Evolution) */}
-          <div className="pt-2 border-t border-[#EFE4D8]">
-            <button
-              type="button"
-              onClick={() => setShowServerConfig(!showServerConfig)}
-              className="text-xs font-semibold text-[#7A5A43] hover:text-[#2E1609] flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <span>{showServerConfig ? '▲ Ocultar Servidor da API' : '▼ Configurações do Servidor da API WhatsApp (Cotafacil / Evolution)'}</span>
-            </button>
-
-            {showServerConfig && (
-              <div className="mt-3 p-4 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3">
-                <p className="text-[11px] text-[#7A5A43]">
-                  Se você tiver um servidor da Cotafacil ou Evolution API dedicado, você pode apontar aqui ou deixar os padrões.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <label className="block font-semibold text-[#2E1609] mb-1">
-                      URL do Servidor (API Cotafacil)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="https://api.whatsapp... ou deixe vazio para padrão"
-                      value={formData.whatsappApiUrl || ''}
-                      onChange={(e) => setFormData({ ...formData, whatsappApiUrl: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs font-mono bg-white focus:outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-[#2E1609] mb-1">
-                      Chave da API (Token Master)
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••••••"
-                      value={formData.whatsappApiKey || ''}
-                      onChange={(e) => setFormData({ ...formData, whatsappApiKey: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs font-mono bg-white focus:outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-[#2E1609] mb-1">
-                      Nome da Instância
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="anamelo"
-                      value={formData.whatsappInstanceName || ''}
-                      onChange={(e) => setFormData({ ...formData, whatsappInstanceName: e.target.value })}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs bg-white focus:outline-hidden"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Integração com Planilha do Parceiro (OneDrive / Excel) */}

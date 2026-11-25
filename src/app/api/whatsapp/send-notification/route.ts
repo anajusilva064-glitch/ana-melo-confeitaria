@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enviarMensagemWhatsAppDireta } from '@/lib/whatsapp-baileys';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,67 +13,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Normalização do número de telefone brasileiro
-    const cleanPhone = phone.replace(/\D/g, '');
-    const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    const res = await enviarMensagemWhatsAppDireta(phone, message);
 
-    // Configurações do provedor de WhatsApp (Evolution API / Cotafacil API / Z-API)
-    const rawApiUrl = body.apiUrl || process.env.WHATSAPP_API_URL || '';
-    const apiUrl = rawApiUrl.replace(/\/+$/, '');
-    const apiKey = body.apiKey || process.env.WHATSAPP_API_KEY || '';
-    const instanceName = body.instanceName || process.env.WHATSAPP_INSTANCE_NAME || 'anamelo';
-
-    // Se houver uma API de WhatsApp configurada (ex: Evolution API ou Z-API), realiza o disparo real
-    if (apiUrl && apiKey) {
-      try {
-        const response = await fetch(`${apiUrl}/message/sendText/${instanceName}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: apiKey,
-          },
-          body: JSON.stringify({
-            number: formattedPhone,
-            text: message,
-          }),
-        });
-
-        const data = await response.json();
-        return NextResponse.json({
-          success: true,
-          provider: 'evolution-api',
-          phone: formattedPhone,
-          orderNumber,
-          data,
-        });
-      } catch (err: any) {
-        console.error('Erro ao conectar com a API externa do WhatsApp:', err);
-        return NextResponse.json({
+    if (!res.success) {
+      console.warn(`[WhatsApp Notification Falha] Pedido: ${orderNumber} - ${res.error}`);
+      return NextResponse.json(
+        {
           success: false,
-          error: 'Falha na comunicação com a API do WhatsApp',
-          details: err.message,
-        }, { status: 502 });
-      }
+          error: res.error,
+          orderNumber,
+          customerName,
+        },
+        { status: 400 }
+      );
     }
 
-    // Modo Padrão / Simulado (pronto para plugar)
-    // Loga o disparo no servidor para auditoria
-    console.log(`[WHATSAPP NOTIFICATION] Para: ${formattedPhone} | Pedido: ${orderNumber} | Status: ${status}`);
-    console.log(`Mensagem:\n${message}\n---`);
+    console.log(`[WhatsApp Notification Enviado com Sucesso!] Para: ${phone} | Pedido: ${orderNumber} | Status: ${status}`);
 
     return NextResponse.json({
       success: true,
-      mode: 'ready-to-plug',
-      phone: formattedPhone,
+      messageId: res.messageId,
+      phone,
       orderNumber,
       customerName,
       status,
-      message,
-      instructions: 'API pronta. Configure WHATSAPP_API_URL e WHATSAPP_API_KEY no .env.local para disparo automático direto.',
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMsg = error instanceof Error ? error.message : 'Erro no processamento da notificação';
     return NextResponse.json(
-      { error: 'Erro interno no processamento da notificação WhatsApp.', details: error.message },
+      { error: errorMsg },
       { status: 500 }
     );
   }
