@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { StoreProvider } from '@/context/StoreContext';
+import { AuthRedirectHandler } from '@/components/AuthRedirectHandler';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -32,6 +33,7 @@ export default function RootLayout({
     <html lang="pt-BR" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans bg-stone-50/50 text-stone-900 selection:bg-rose-500 selection:text-white">
         <StoreProvider>
+          <AuthRedirectHandler />
           {children}
         </StoreProvider>
       </body>

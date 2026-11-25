@@ -147,6 +147,7 @@ export async function registerAdminRequest(email: string, password: string, full
 
   try {
     const cleanEmail = email.trim().toLowerCase();
+    const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/admin` : undefined;
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
@@ -154,6 +155,7 @@ export async function registerAdminRequest(email: string, password: string, full
         data: {
           full_name: fullName.trim(),
         },
+        emailRedirectTo: redirectUrl,
       },
     });
 
@@ -265,9 +267,13 @@ export async function resendConfirmationEmail(email: string): Promise<{ success:
   }
 
   try {
+    const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/admin` : undefined;
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: email.trim().toLowerCase(),
+      options: {
+        emailRedirectTo: redirectUrl,
+      },
     });
 
     if (error) {

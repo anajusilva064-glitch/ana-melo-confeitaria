@@ -66,15 +66,43 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           }
 
           // Busca perfil do usuário em admin_users
-          const { data: profile } = await supabase
+          let { data: profile } = await supabase
             .from('admin_users')
             .select('*')
             .eq('id', session.user.id)
             .maybeSingle();
 
+          if (!profile) {
+            // Se o perfil ainda não foi gerado pela trigger, verifica se é o primeiro usuário
+            const { count } = await supabase
+              .from('admin_users')
+              .select('*', { count: 'exact', head: true });
+
+            const isFirst = (count ?? 0) === 0;
+
+            const { data: newProfile } = await supabase
+              .from('admin_users')
+              .insert({
+                id: session.user.id,
+                email: session.user.email || '',
+                full_name: session.user.user_metadata?.full_name || 'Administrador Master',
+                role: isFirst ? 'admin' : 'pending',
+                is_approved: isFirst,
+                approved_at: isFirst ? new Date().toISOString() : null,
+              })
+              .select()
+              .maybeSingle();
+
+            if (newProfile) {
+              profile = newProfile;
+            }
+          }
+
           // Acesso só é permitido se is_approved for true
           if (profile && profile.is_approved) {
             if (isMounted) {
+              sessionStorage.setItem('ana_melo_admin_auth', 'true');
+              sessionStorage.setItem('ana_melo_admin_user', profile.email);
               setCurrentUser(profile as AdminUserProfile);
               setIsAuthenticated(true);
             }

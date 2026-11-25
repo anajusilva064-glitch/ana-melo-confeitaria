@@ -42,28 +42,34 @@ export default function AdminLoginPage() {
   const [isResending, setIsResending] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Verifica se o banco de dados ainda não tem nenhum usuário cadastrado
+  // Se o usuário já tiver uma sessão válida (ex: acabou de confirmar o e-mail no navegador), redireciona direto para o admin
   useEffect(() => {
-    async function checkSetup() {
-      if (supabase && isSupabaseConfigured) {
-        try {
-          const { count } = await supabase
-            .from('admin_users')
-            .select('*', { count: 'exact', head: true });
+    const client = supabase;
+    if (!client || !isSupabaseConfigured) return;
 
-          if (count === 0) {
-            setIsFirstSetup(true);
-            setMode('register');
-          } else {
-            setIsFirstSetup(false);
-          }
-        } catch {
-          // ignora falha silenciosa
+    const checkActiveSession = async () => {
+      try {
+        const { data: { session } } = await client.auth.getSession();
+        if (session?.user && session.user.email_confirmed_at) {
+          router.push('/admin');
         }
+      } catch {
+        // ignora
       }
-    }
-    checkSetup();
-  }, []);
+    };
+
+    checkActiveSession();
+
+    const { data: authListener } = client.auth.onAuthStateChange((event, session) => {
+      if (session?.user && (event === 'SIGNED_IN' || event === 'USER_UPDATED')) {
+        router.push('/admin');
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [router]);
 
   const resetFeedback = () => {
     setError('');
