@@ -18,6 +18,7 @@ export type AuthResult = {
   isPendingApproval?: boolean;
   isRejected?: boolean;
   isMasterAdmin?: boolean;
+  isEmailUnconfirmed?: boolean;
 };
 
 /**
@@ -42,7 +43,8 @@ export async function loginAdmin(email: string, password: string): Promise<AuthR
       if (authError?.message?.includes('Email not confirmed') || (authError as { code?: string })?.code === 'email_not_confirmed') {
         return {
           success: false,
-          message: 'E-mail ainda não confirmado. Verifique a caixa de entrada do seu e-mail ou confirme o usuário no painel do Supabase.',
+          isEmailUnconfirmed: true,
+          message: 'E-mail ainda não confirmado. Verifique sua caixa de entrada e pasta de spam para clicar no link de confirmação enviado pelo Supabase.',
         };
       }
       if (authError?.message?.includes('Invalid login credentials')) {
@@ -168,6 +170,24 @@ export async function registerAdminRequest(email: string, password: string, full
       };
     }
 
+    // Se o Supabase retornou sem identities, o e-mail já existe no banco
+    if (authData.user.identities && authData.user.identities.length === 0) {
+      return {
+        success: false,
+        isEmailUnconfirmed: true,
+        message: 'Este e-mail já possui cadastro. Se você ainda não confirmou seu e-mail, clique em Reenviar Confirmação abaixo.',
+      };
+    }
+
+    // Se a confirmação de e-mail estiver ativa no Supabase e ainda não foi confirmada
+    if (!authData.session && !authData.user.email_confirmed_at) {
+      return {
+        success: true,
+        isEmailUnconfirmed: true,
+        message: 'Cadastro realizado com sucesso! Um link de ativação foi enviado para o seu e-mail. Por favor, confirme para liberar seu acesso.',
+      };
+    }
+
     const userId = authData.user.id;
 
     // Aguarda e busca o registro criado pela trigger do banco
@@ -232,6 +252,36 @@ export async function registerAdminRequest(email: string, password: string, full
     return {
       success: false,
       message: errorMsg,
+    };
+  }
+}
+
+/**
+ * Reenvia o e-mail de confirmação de cadastro do Supabase
+ */
+export async function resendConfirmationEmail(email: string): Promise<{ success: boolean; message: string }> {
+  if (!supabase || !isSupabaseConfigured) {
+    return { success: false, message: 'Supabase não configurado.' };
+  }
+
+  try {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email.trim().toLowerCase(),
+    });
+
+    if (error) {
+      return { success: false, message: error.message };
+    }
+
+    return {
+      success: true,
+      message: 'Link de confirmação reenviado! Verifique sua caixa de entrada e spam.',
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      message: err instanceof Error ? err.message : 'Erro ao reenviar confirmação.',
     };
   }
 }

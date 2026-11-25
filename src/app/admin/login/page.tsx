@@ -20,6 +20,7 @@ import {
   loginAdmin,
   registerAdminRequest,
   sendPasswordReset,
+  resendConfirmationEmail,
 } from '@/lib/supabase-auth';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -37,6 +38,8 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isPending, setIsPending] = useState(false);
+  const [isUnconfirmed, setIsUnconfirmed] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   // Verifica se o banco de dados ainda não tem nenhum usuário cadastrado
@@ -66,6 +69,23 @@ export default function AdminLoginPage() {
     setError('');
     setSuccessMsg('');
     setIsPending(false);
+    setIsUnconfirmed(false);
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) {
+      setError('Informe seu e-mail para reenviar a confirmação.');
+      return;
+    }
+    setIsResending(true);
+    const res = await resendConfirmationEmail(email);
+    setIsResending(false);
+    if (res.success) {
+      setSuccessMsg(res.message);
+      setIsUnconfirmed(false);
+    } else {
+      setError(res.message);
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -83,7 +103,9 @@ export default function AdminLoginPage() {
       }
       router.push('/admin');
     } else {
-      if (res.isPendingApproval) {
+      if (res.isEmailUnconfirmed) {
+        setIsUnconfirmed(true);
+      } else if (res.isPendingApproval) {
         setIsPending(true);
       } else {
         setError(res.message || 'Falha ao autenticar.');
@@ -109,6 +131,13 @@ export default function AdminLoginPage() {
     setIsLoading(false);
 
     if (res.success) {
+      if (res.isEmailUnconfirmed) {
+        setIsUnconfirmed(true);
+        setSuccessMsg(res.message || 'Cadastro realizado com sucesso!');
+        setMode('login');
+        return;
+      }
+
       // Se for o primeiro usuário (Master Admin), entra na hora!
       if (res.isMasterAdmin) {
         if (typeof window !== 'undefined') {
@@ -120,11 +149,14 @@ export default function AdminLoginPage() {
       }
 
       setSuccessMsg(
-        'Solicitação de acesso cadastrada com sucesso! O Administrador master precisa aprovar seu usuário antes do primeiro login.'
+        'Solicitação cadastrada! Verifique sua caixa de entrada para confirmar o e-mail antes de acessar.'
       );
       setMode('login');
       setPassword('');
     } else {
+      if (res.isEmailUnconfirmed) {
+        setIsUnconfirmed(true);
+      }
       setError(res.message || 'Falha ao registrar solicitação.');
     }
   };
@@ -252,6 +284,33 @@ export default function AdminLoginPage() {
           <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-200 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
             <span>{successMsg}</span>
+          </div>
+        )}
+
+        {/* Email Unconfirmed Card */}
+        {isUnconfirmed && (
+          <div className="p-4 rounded-2xl bg-amber-950/80 border border-amber-500/60 text-xs space-y-3">
+            <div className="flex items-center gap-2 text-amber-300 font-semibold">
+              <Mail className="w-4 h-4 text-amber-400" />
+              <span>Confirmação de E-mail Obrigatória</span>
+            </div>
+            <p className="text-[#F5ECE1] text-[11px] leading-relaxed">
+              O link de ativação foi enviado para <strong>{email || 'o seu e-mail'}</strong>.
+            </p>
+            <p className="text-[11px] text-amber-200/90 leading-relaxed">
+              Por segurança, abra seu e-mail (verifique também a pasta de <strong>Spam / Lixo Eletrônico</strong>) e clique em confirmar. Após confirmar, retorne aqui e clique em <strong>Entrar no Sistema</strong>.
+            </p>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={isResending}
+                className="w-full sm:w-auto px-3.5 py-2 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/50 text-[11px] font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Mail className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isResending ? 'Reenviando confirmação...' : 'Reenviar e-mail de confirmação'}</span>
+              </button>
+            </div>
           </div>
         )}
 
