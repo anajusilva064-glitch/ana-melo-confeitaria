@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useStore } from '@/context/StoreContext';
 import { formatCurrency } from '@/lib/utils';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -89,26 +89,29 @@ export default function AdminConfiguracoesPage() {
   const [testSendStatus, setTestSendStatus] = useState<string | null>(null);
   const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
 
-  const checkWhatsAppStatus = async () => {
+  const isConnectingRef = useRef(false);
+
+  const checkWhatsAppStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/whatsapp/status');
+      const res = await fetch('/api/whatsapp/status', { cache: 'no-store' });
       const data = await res.json();
-      if (data.connected) {
+      if (data.connected || data.conectado) {
+        isConnectingRef.current = false;
         setConnectionStatus('connected');
         setConnectedPhone(data.numeroConectado || 'WhatsApp Conectado');
         setQrCodeImage(null);
-      } else if (data.status === 'QR_PRONTO' && data.qrCode) {
+      } else if (data.qrCode || data.qrCodeDataUrl) {
         setConnectionStatus('connecting');
-        setQrCodeImage(data.qrCode);
-      } else if (connectionStatus !== 'connecting') {
+        setQrCodeImage(data.qrCode || data.qrCodeDataUrl);
+      } else if (!isConnectingRef.current) {
         setConnectionStatus('disconnected');
       }
     } catch {
-      if (connectionStatus !== 'connecting') {
+      if (!isConnectingRef.current) {
         setConnectionStatus('disconnected');
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkWhatsAppStatus();
@@ -116,10 +119,11 @@ export default function AdminConfiguracoesPage() {
       checkWhatsAppStatus();
     }, 3500);
     return () => clearInterval(interval);
-  }, []);
+  }, [checkWhatsAppStatus]);
 
   const handleGenerateQrCode = async (forcarNovo = false) => {
     setIsLoadingQr(true);
+    isConnectingRef.current = true;
     setConnectionStatus('connecting');
     try {
       const res = await fetch('/api/whatsapp/qr', {
@@ -128,17 +132,20 @@ export default function AdminConfiguracoesPage() {
         body: JSON.stringify({ forcarNovoQr: forcarNovo }),
       });
       const data = await res.json();
-      if (data.qrCode) {
-        setQrCodeImage(data.qrCode);
+      if (data.qrCode || data.qrCodeDataUrl) {
+        setQrCodeImage(data.qrCode || data.qrCodeDataUrl);
         setConnectionStatus('connecting');
-      } else if (data.connected) {
+      } else if (data.connected || data.conectado) {
+        isConnectingRef.current = false;
         setConnectionStatus('connected');
         setConnectedPhone(data.numeroConectado);
       } else if (data.ultimoErro || data.status === 'ERRO') {
+        isConnectingRef.current = false;
         alert(data.ultimoErro || 'Erro ao gerar QR Code do WhatsApp. Tente novamente.');
         setConnectionStatus('disconnected');
       }
     } catch (err: unknown) {
+      isConnectingRef.current = false;
       const msg = err instanceof Error ? err.message : 'Erro na requisição';
       alert(msg);
       setConnectionStatus('disconnected');
@@ -150,6 +157,7 @@ export default function AdminConfiguracoesPage() {
   const handleDisconnectWhatsApp = async () => {
     if (!confirm('Deseja realmente desconectar o WhatsApp do ateliê?')) return;
     try {
+      isConnectingRef.current = false;
       await fetch('/api/whatsapp/disconnect', { method: 'POST' });
       setConnectionStatus('disconnected');
       setQrCodeImage(null);
@@ -706,7 +714,10 @@ export default function AdminConfiguracoesPage() {
                       className="w-full h-full object-contain rounded-lg"
                     />
                   ) : (
-                    <p className="text-xs text-[#7A5A43]">Carregando...</p>
+                    <div className="space-y-2 text-center text-xs text-[#7A5A43]">
+                      <RefreshCw className="w-8 h-8 mx-auto animate-spin text-[#C69255]" />
+                      <p className="font-semibold">Sincronizando com WhatsApp...</p>
+                    </div>
                   )}
                 </div>
 
@@ -732,10 +743,11 @@ export default function AdminConfiguracoesPage() {
                   <button
                     type="button"
                     onClick={() => {
+                      isConnectingRef.current = false;
                       setConnectionStatus('disconnected');
                       setQrCodeImage(null);
                     }}
-                    className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-xs font-semibold text-stone-700 transition-colors"
+                    className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-xs font-semibold text-stone-700 transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>

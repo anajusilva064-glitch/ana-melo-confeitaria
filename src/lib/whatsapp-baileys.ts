@@ -2,6 +2,7 @@ import QRCode from 'qrcode';
 import pino from 'pino';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
@@ -43,11 +44,22 @@ if (!globalAny[globalKey]) {
 const waState: WaGlobalState = globalAny[globalKey];
 
 function getSessionPath(): string {
-  const dir = path.join(process.cwd(), '.whatsapp_auth');
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  try {
+    const localDir = path.join(process.cwd(), '.whatsapp_auth');
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    // Valida permissão de escrita local
+    fs.accessSync(localDir, fs.constants.W_OK);
+    return localDir;
+  } catch {
+    // Em ambientes com filesystem read-only (como Vercel/serverless), usa o diretório temporário do SO
+    const tmpDir = path.join(os.tmpdir(), 'ana_melo_wa_auth');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    return tmpDir;
   }
-  return dir;
 }
 
 /**
@@ -219,8 +231,10 @@ export async function obterStatusWhatsApp() {
     success: true,
     status: isConectado ? 'CONECTADO' : waState.status,
     connected: isConectado,
+    conectado: isConectado,
     possuiSessaoSalva: possuiCredenciaisLocais,
     qrCode: isConectado ? null : waState.qrCodeDataUrl,
+    qrCodeDataUrl: isConectado ? null : waState.qrCodeDataUrl,
     numeroConectado: waState.numeroConectado || (possuiCredenciaisLocais ? 'WhatsApp Pareado' : null),
     nomeConectado: waState.nomeConectado || 'Ana Melo Confeitaria',
     ultimoErro: waState.ultimoErro || null,
