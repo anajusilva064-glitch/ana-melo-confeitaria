@@ -130,9 +130,13 @@ export default function AdminConfiguracoesPage() {
       const data = await res.json();
       if (data.qrCode) {
         setQrCodeImage(data.qrCode);
+        setConnectionStatus('connecting');
       } else if (data.connected) {
         setConnectionStatus('connected');
         setConnectedPhone(data.numeroConectado);
+      } else if (data.ultimoErro || data.status === 'ERRO') {
+        alert(data.ultimoErro || 'Erro ao gerar QR Code do WhatsApp. Tente novamente.');
+        setConnectionStatus('disconnected');
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro na requisição';

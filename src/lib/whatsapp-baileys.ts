@@ -2,6 +2,10 @@ import QRCode from 'qrcode';
 import pino from 'pino';
 import path from 'path';
 import fs from 'fs';
+import makeWASocket, {
+  DisconnectReason,
+  useMultiFileAuthState,
+} from '@whiskeysockets/baileys';
 
 // Tipos para estado interno do Baileys
 export type WaStatus = 'DESCONECTADO' | 'CONECTANDO' | 'QR_PRONTO' | 'CONECTADO' | 'ERRO';
@@ -56,17 +60,10 @@ export async function iniciarConexaoWhatsApp({
   forcarNovoQr?: boolean;
   timeoutMs?: number;
 } = {}) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const baileys = require('@whiskeysockets/baileys');
-  const makeWASocket = baileys.default || baileys.makeWASocket;
-  const useMultiFileAuthState = baileys.useMultiFileAuthState || (baileys.default && baileys.default.useMultiFileAuthState);
-  const DisconnectReason = baileys.DisconnectReason || (baileys.default && baileys.default.DisconnectReason) || {};
-
-  if (!makeWASocket || !useMultiFileAuthState) {
-    waState.status = 'ERRO';
-    waState.ultimoErro = 'Biblioteca @whiskeysockets/baileys não disponível.';
-    return obterStatusWhatsApp();
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const makeWASocketFn: any = (makeWASocket as any)?.default || makeWASocket;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const useMultiFileAuthStateFn: any = (useMultiFileAuthState as any)?.default || useMultiFileAuthState;
 
   const sessionPath = getSessionPath();
 
@@ -106,7 +103,7 @@ export async function iniciarConexaoWhatsApp({
     return obterStatusWhatsApp();
   }
 
-  const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+  const { state, saveCreds } = await useMultiFileAuthStateFn(sessionPath);
 
   try {
     if (waState.sock) {
@@ -119,7 +116,7 @@ export async function iniciarConexaoWhatsApp({
   waState.ultimoErro = null;
 
   const logger = pino({ level: 'silent' });
-  const sock = makeWASocket({
+  const sock = makeWASocketFn({
     auth: state,
     logger,
     printQRInTerminal: false,
