@@ -16,10 +16,11 @@ export async function POST(req: NextRequest) {
     const cleanPhone = phone.replace(/\D/g, '');
     const formattedPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
 
-    // Configurações do provedor de WhatsApp (Evolution API / Z-API / Webhook)
-    const apiUrl = process.env.WHATSAPP_API_URL || '';
-    const apiKey = process.env.WHATSAPP_API_KEY || '';
-    const instanceName = process.env.WHATSAPP_INSTANCE_NAME || 'anamelo';
+    // Configurações do provedor de WhatsApp (Evolution API / Cotafacil API / Z-API)
+    const rawApiUrl = body.apiUrl || process.env.WHATSAPP_API_URL || '';
+    const apiUrl = rawApiUrl.replace(/\/+$/, '');
+    const apiKey = body.apiKey || process.env.WHATSAPP_API_KEY || '';
+    const instanceName = body.instanceName || process.env.WHATSAPP_INSTANCE_NAME || 'anamelo';
 
     // Se houver uma API de WhatsApp configurada (ex: Evolution API ou Z-API), realiza o disparo real
     if (apiUrl && apiKey) {

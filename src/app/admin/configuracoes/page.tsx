@@ -33,6 +33,11 @@ import {
   UserX,
   RefreshCw,
   KeyRound,
+  Phone,
+  Smartphone,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 export default function AdminConfiguracoesPage() {
@@ -72,6 +77,135 @@ export default function AdminConfiguracoesPage() {
       setNewPasswordInput('');
       setConfirmPasswordInput('');
       setTimeout(() => setPasswordStatus(null), 4000);
+    }
+  };
+
+  // Estados para Conexão Direta WhatsApp (QR Code)
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'checking'>('checking');
+  const [qrCodeImage, setQrCodeImage] = useState<string | null>(null);
+  const [isLoadingQr, setIsLoadingQr] = useState<boolean>(false);
+  const [connectedPhone, setConnectedPhone] = useState<string | null>(null);
+  const [showServerConfig, setShowServerConfig] = useState<boolean>(false);
+  const [testPhoneNumber, setTestPhoneNumber] = useState<string>('');
+  const [testSendStatus, setTestSendStatus] = useState<string | null>(null);
+  const [isSendingTest, setIsSendingTest] = useState<boolean>(false);
+
+  const checkWhatsAppStatus = async () => {
+    try {
+      const params = new URLSearchParams({
+        apiUrl: formData.whatsappApiUrl || '',
+        apiKey: formData.whatsappApiKey || '',
+        instanceName: formData.whatsappInstanceName || 'anamelo',
+      });
+      const res = await fetch(`/api/whatsapp/status?${params.toString()}`);
+      const data = await res.json();
+      if (data.connected) {
+        setConnectionStatus('connected');
+        setConnectedPhone(data.phone || 'WhatsApp Conectado');
+        setQrCodeImage(null);
+      } else if (connectionStatus !== 'connecting') {
+        setConnectionStatus('disconnected');
+      }
+    } catch {
+      if (connectionStatus !== 'connecting') {
+        setConnectionStatus('disconnected');
+      }
+    }
+  };
+
+  useEffect(() => {
+    checkWhatsAppStatus();
+    const interval = setInterval(() => {
+      checkWhatsAppStatus();
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [formData.whatsappApiUrl, formData.whatsappApiKey, formData.whatsappInstanceName]);
+
+  const handleGenerateQrCode = async () => {
+    setIsLoadingQr(true);
+    setConnectionStatus('connecting');
+    setQrCodeImage(null);
+    try {
+      const res = await fetch('/api/whatsapp/qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl: formData.whatsappApiUrl || '',
+          apiKey: formData.whatsappApiKey || '',
+          instanceName: formData.whatsappInstanceName || 'anamelo',
+        }),
+      });
+      const data = await res.json();
+      if (data.qrcode) {
+        setQrCodeImage(data.qrcode);
+      } else {
+        alert(data.error || 'Não foi possível gerar o QR Code.');
+        setConnectionStatus('disconnected');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro na requisição';
+      alert(msg);
+      setConnectionStatus('disconnected');
+    } finally {
+      setIsLoadingQr(false);
+    }
+  };
+
+  const handleDisconnectWhatsApp = async () => {
+    if (!confirm('Deseja realmente desconectar este WhatsApp?')) return;
+    try {
+      await fetch('/api/whatsapp/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl: formData.whatsappApiUrl || '',
+          apiKey: formData.whatsappApiKey || '',
+          instanceName: formData.whatsappInstanceName || 'anamelo',
+        }),
+      });
+      setConnectionStatus('disconnected');
+      setQrCodeImage(null);
+      setConnectedPhone(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro ao desconectar';
+      alert(msg);
+    }
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!testPhoneNumber.trim()) {
+      alert('Informe um número de telefone com DDD para testar (ex: 44999739472).');
+      return;
+    }
+    setIsSendingTest(true);
+    setTestSendStatus(null);
+    try {
+      const res = await fetch('/api/whatsapp/send-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiUrl: formData.whatsappApiUrl || '',
+          apiKey: formData.whatsappApiKey || '',
+          instanceName: formData.whatsappInstanceName || 'anamelo',
+          phone: testPhoneNumber,
+          message: '🎂 *Ana Melo Confeitaria*: Teste de conexão do WhatsApp realizado com sucesso! O sistema está pronto para disparar notificações automáticas.',
+          orderNumber: '#TESTE',
+          status: 'ready',
+          customerName: 'Cliente Teste',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTestSendStatus('Mensagem de teste enviada com sucesso no WhatsApp!');
+      } else {
+        setTestSendStatus(`Falha no envio: ${data.error || 'Verifique o número'}`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erro';
+      setTestSendStatus(`Erro: ${msg}`);
+    } finally {
+      setIsSendingTest(false);
+      setTimeout(() => setTestSendStatus(null), 5000);
     }
   };
 
@@ -445,16 +579,39 @@ export default function AdminConfiguracoesPage() {
           </p>
         </div>
 
-        {/* Configurações da API de WhatsApp */}
-        <div className="p-6 rounded-2xl bg-white border border-[#E8D5C4] shadow-2xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#F2E8DF] pb-3">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#C69255]" />
-              <h2 className="font-serif text-base font-bold text-[#2E1609]">
-                Automação e API de Notificações WhatsApp
-              </h2>
+        {/* Central de Conexão WhatsApp (QR Code / API Cotafacil) */}
+        <div className="p-6 rounded-2xl bg-white border border-[#D5BFA8] shadow-2xs space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#EFE4D8] pb-4 gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+                <QrCode className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <h2 className="font-serif text-base font-bold text-[#2E1609] flex items-center gap-2">
+                  <span>Conexão Direta WhatsApp (QR Code)</span>
+                  {connectionStatus === 'connected' ? (
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                      Conectado
+                    </span>
+                  ) : connectionStatus === 'connecting' ? (
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-ping" />
+                      Aguardando Leitura
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-600 border border-stone-300">
+                      Desconectado
+                    </span>
+                  )}
+                </h2>
+                <p className="text-xs text-[#7A5A43]">
+                  Conecte o WhatsApp do ateliê diretamente pelo sistema lendo o QR Code com a câmera do WhatsApp.
+                </p>
+              </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
+
+            <label className="flex items-center gap-2 cursor-pointer self-start sm:self-auto">
               <input
                 type="checkbox"
                 checked={formData.whatsappAutoNotify}
@@ -462,54 +619,233 @@ export default function AdminConfiguracoesPage() {
                 className="rounded-sm border-[#D5BFA8] text-[#2E1609]"
               />
               <span className="text-xs font-semibold text-[#2E1609]">
-                Disparo Automático Ativado
+                Disparo Automático Ativo
               </span>
             </label>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-            <div>
-              <label className="block font-semibold text-[#2E1609] mb-1">
-                URL da API (Evolution API / Z-API)
-              </label>
-              <input
-                type="text"
-                placeholder="https://api.evolution.com"
-                value={formData.whatsappApiUrl || ''}
-                onChange={(e) => setFormData({ ...formData, whatsappApiUrl: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs font-mono focus:outline-hidden focus:border-[#2E1609]"
-              />
-            </div>
+          {/* STATUS: CONECTADO */}
+          {connectionStatus === 'connected' && (
+            <div className="p-5 rounded-2xl bg-emerald-50/80 border border-emerald-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Smartphone className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>WhatsApp Pareado e Operando</span>
+                    </h3>
+                    <p className="text-[11px] text-emerald-800">
+                      Dispositivo: <strong>{connectedPhone}</strong> • Instância: <code>{formData.whatsappInstanceName || 'anamelo'}</code>
+                    </p>
+                  </div>
+                </div>
 
-            <div>
-              <label className="block font-semibold text-[#2E1609] mb-1">
-                Chave da API (ApiKey / Token)
-              </label>
-              <input
-                type="password"
-                placeholder="••••••••••••••••"
-                value={formData.whatsappApiKey || ''}
-                onChange={(e) => setFormData({ ...formData, whatsappApiKey: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs font-mono focus:outline-hidden focus:border-[#2E1609]"
-              />
-            </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={checkWhatsAppStatus}
+                    className="px-3 py-1.5 rounded-xl border border-emerald-300 bg-white hover:bg-emerald-100 text-emerald-900 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Verificar</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDisconnectWhatsApp}
+                    className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors shadow-xs"
+                  >
+                    Desconectar
+                  </button>
+                </div>
+              </div>
 
-            <div>
-              <label className="block font-semibold text-[#2E1609] mb-1">
-                Nome da Instância
-              </label>
-              <input
-                type="text"
-                placeholder="anamelo"
-                value={formData.whatsappInstanceName || ''}
-                onChange={(e) => setFormData({ ...formData, whatsappInstanceName: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
-              />
+              {/* Teste de Disparo Real */}
+              <div className="pt-3 border-t border-emerald-200/70 space-y-2">
+                <span className="text-xs font-bold text-emerald-950 block">
+                  Testar Envio de Mensagem Direta:
+                </span>
+                <div className="flex flex-col sm:flex-row gap-2 max-w-md">
+                  <input
+                    type="tel"
+                    placeholder="DDD + Telefone (ex: 44999739472)"
+                    value={testPhoneNumber}
+                    onChange={(e) => setTestPhoneNumber(e.target.value)}
+                    className="flex-1 px-3.5 py-2 rounded-xl border border-emerald-300 bg-white text-xs text-[#2E1609] focus:outline-hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendTestMessage}
+                    disabled={isSendingTest}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>{isSendingTest ? 'Enviando...' : 'Testar Mensagem'}</span>
+                  </button>
+                </div>
+                {testSendStatus && (
+                  <p className="text-[11px] font-semibold text-emerald-900">
+                    {testSendStatus}
+                  </p>
+                )}
+              </div>
             </div>
+          )}
+
+          {/* STATUS: CONECTANDO / EXIBINDO QR CODE */}
+          {connectionStatus === 'connecting' && (
+            <div className="p-6 rounded-2xl bg-[#FAF7F3] border border-[#E8D5C4] text-center space-y-4">
+              <div className="max-w-md mx-auto space-y-3">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-amber-600 animate-ping" />
+                  <span>Escaneie com seu WhatsApp</span>
+                </div>
+
+                <h3 className="font-serif text-base font-bold text-[#2E1609]">
+                  Aponte a câmera do WhatsApp para conectar
+                </h3>
+
+                {/* Box do QR Code */}
+                <div className="w-64 h-64 mx-auto p-3 bg-white rounded-2xl border-2 border-[#D5BFA8] shadow-md flex items-center justify-center relative">
+                  {isLoadingQr ? (
+                    <div className="space-y-2 text-center text-xs text-[#7A5A43]">
+                      <RefreshCw className="w-8 h-8 mx-auto animate-spin text-[#C69255]" />
+                      <p>Gerando QR Code...</p>
+                    </div>
+                  ) : qrCodeImage ? (
+                    <img
+                      src={qrCodeImage}
+                      alt="QR Code WhatsApp"
+                      className="w-full h-full object-contain rounded-lg"
+                    />
+                  ) : (
+                    <p className="text-xs text-[#7A5A43]">Carregando...</p>
+                  )}
+                </div>
+
+                {/* Instruções passo a passo */}
+                <div className="text-left bg-white p-4 rounded-xl border border-[#E8D5C4] text-xs space-y-1.5 text-[#5A3821]">
+                  <p className="font-bold text-[#2E1609]">Como conectar no seu celular:</p>
+                  <p>1. Abra o <strong>WhatsApp</strong> no seu smartphone.</p>
+                  <p>2. Toque em <strong>Configurações</strong> (iPhone) ou nos <strong>3 pontinhos</strong> (Android).</p>
+                  <p>3. Selecione <strong>Aparelhos Conectados</strong> ➔ <strong>Conectar um aparelho</strong>.</p>
+                  <p>4. Aponte a câmera para o QR Code acima. O sistema conectará automaticamente!</p>
+                </div>
+
+                <div className="flex justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleGenerateQrCode}
+                    disabled={isLoadingQr}
+                    className="px-4 py-2 rounded-xl bg-white border border-[#D5BFA8] hover:bg-[#EFE4D8] text-xs font-semibold text-[#2E1609] flex items-center gap-1.5 transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingQr ? 'animate-spin' : ''}`} />
+                    <span>Recarregar QR Code</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConnectionStatus('disconnected');
+                      setQrCodeImage(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-xs font-semibold text-stone-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* STATUS: DESCONECTADO OU CHECANDO */}
+          {connectionStatus === 'disconnected' && (
+            <div className="p-6 rounded-2xl bg-[#FAF7F3] border border-[#E8D5C4] text-center space-y-3">
+              <div className="w-14 h-14 rounded-3xl bg-white border border-[#D5BFA8] flex items-center justify-center text-[#2E1609] mx-auto shadow-2xs">
+                <QrCode className="w-7 h-7 text-[#C69255]" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-serif text-base font-bold text-[#2E1609]">
+                  Nenhum WhatsApp Conectado no Momento
+                </h3>
+                <p className="text-xs text-[#7A5A43] max-w-md mx-auto">
+                  Clique no botão abaixo para gerar o QR Code na tela. Basta escanear com seu celular para o sistema começar a enviar as mensagens automáticas.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleGenerateQrCode}
+                  disabled={isLoadingQr}
+                  className="px-6 py-3 rounded-xl bg-[#2E1609] hover:bg-[#1F1108] text-white text-xs font-bold flex items-center justify-center gap-2 mx-auto shadow-sm transition-all cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4 text-[#C69255]" />
+                  <span>Gerar QR Code para Conectar WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Configurações Avançadas do Servidor (Cotafacil / Evolution) */}
+          <div className="pt-2 border-t border-[#EFE4D8]">
+            <button
+              type="button"
+              onClick={() => setShowServerConfig(!showServerConfig)}
+              className="text-xs font-semibold text-[#7A5A43] hover:text-[#2E1609] flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span>{showServerConfig ? '▲ Ocultar Servidor da API' : '▼ Configurações do Servidor da API WhatsApp (Cotafacil / Evolution)'}</span>
+            </button>
+
+            {showServerConfig && (
+              <div className="mt-3 p-4 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3">
+                <p className="text-[11px] text-[#7A5A43]">
+                  Se você tiver um servidor da Cotafacil ou Evolution API dedicado, você pode apontar aqui ou deixar os padrões.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <label className="block font-semibold text-[#2E1609] mb-1">
+                      URL do Servidor (API Cotafacil)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="https://api.whatsapp... ou deixe vazio para padrão"
+                      value={formData.whatsappApiUrl || ''}
+                      onChange={(e) => setFormData({ ...formData, whatsappApiUrl: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs font-mono bg-white focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-[#2E1609] mb-1">
+                      Chave da API (Token Master)
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="••••••••••••••••"
+                      value={formData.whatsappApiKey || ''}
+                      onChange={(e) => setFormData({ ...formData, whatsappApiKey: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs font-mono bg-white focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-[#2E1609] mb-1">
+                      Nome da Instância
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="anamelo"
+                      value={formData.whatsappInstanceName || ''}
+                      onChange={(e) => setFormData({ ...formData, whatsappInstanceName: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs bg-white focus:outline-hidden"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <p className="text-[11px] text-[#7A5A43] leading-relaxed">
-            Quando ativado, cada vez que o status de uma encomenda for alterado no Kanban (ex: "Pronto para Retirada"), uma mensagem padronizada com o endereço do ateliê é enviada automaticamente para o WhatsApp do cliente.
-          </p>
         </div>
 
         {/* Integração com Planilha do Parceiro (OneDrive / Excel) */}
