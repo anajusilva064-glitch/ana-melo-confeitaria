@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useStore } from '@/context/StoreContext';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime, isImmediateOrder, isScheduledOrder } from '@/lib/utils';
 import {
   DollarSign,
   ShoppingBag,
@@ -29,8 +29,13 @@ export default function AdminDashboardPage() {
     .filter((o) => o.paymentStatus === 'paid')
     .reduce((sum, o) => sum + o.totalAmount, 0);
 
-  const pendingOrders = orders.filter(
-    (o) => o.orderStatus === 'received' || o.orderStatus === 'preparing'
+  // Pedidos separados: Pronta Entrega na cozinha vs Encomendas no Calendário
+  const pendingKitchenOrders = orders.filter(
+    (o) => isImmediateOrder(o) && (o.orderStatus === 'received' || o.orderStatus === 'preparing')
+  );
+
+  const pendingPreOrders = orders.filter(
+    (o) => isScheduledOrder(o) && (o.orderStatus === 'received' || o.orderStatus === 'preparing')
   );
 
   const lowStockItems = ingredients.filter((i) => i.currentStock <= i.minStockAlert);
@@ -96,23 +101,47 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Pedidos em Aberto */}
-        <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3">
+        {/* Pedidos na Cozinha (Pronta Entrega) */}
+        <Link
+          href="/admin/pedidos"
+          className="p-5 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3 hover:border-[#C69255] transition-all block"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-stone-500">Pedidos na Cozinha</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+            <span className="text-xs font-medium text-stone-500">Cozinha (Pronta Entrega)</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
           </div>
           <div>
             <span className="text-2xl font-bold text-stone-900 font-sans">
-              {pendingOrders.length}
+              {pendingKitchenOrders.length}
             </span>
-            <span className="block text-[11px] text-rose-500 font-medium mt-0.5">
-              Requer atenção imediata
+            <span className="block text-[11px] text-amber-700 font-medium mt-0.5">
+              {pendingKitchenOrders.length > 0 ? 'Requer preparo imediato' : 'Cozinha sem pendências'}
             </span>
           </div>
-        </div>
+        </Link>
+
+        {/* Encomendas no Calendário */}
+        <Link
+          href="/admin/encomendas-agenda"
+          className="p-5 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3 hover:border-[#C69255] transition-all block"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-stone-500">Encomendas Programadas</span>
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+              <Cake className="w-4 h-4" />
+            </div>
+          </div>
+          <div>
+            <span className="text-2xl font-bold text-stone-900 font-sans">
+              {pendingPreOrders.length}
+            </span>
+            <span className="block text-[11px] text-rose-600 font-medium mt-0.5">
+              Agendadas no Calendário
+            </span>
+          </div>
+        </Link>
 
         {/* Lucro Líquido Acumulado */}
         <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-2xs space-y-3">
@@ -188,6 +217,13 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-stone-900">{order.orderNumber}</span>
                     <span className="text-xs font-medium text-stone-700">• {order.customerName}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                      isImmediateOrder(order)
+                        ? 'bg-amber-50 text-amber-800 border-amber-300'
+                        : 'bg-purple-50 text-purple-800 border-purple-300'
+                    }`}>
+                      {isImmediateOrder(order) ? 'Pronta Entrega' : 'Encomenda'}
+                    </span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         order.orderStatus === 'received'

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useStore } from '@/context/StoreContext';
 import { Order, OrderStatus } from '@/types';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime, isImmediateOrder } from '@/lib/utils';
 import {
   Printer,
   ChevronRight,
@@ -14,6 +14,9 @@ import {
   Send,
   Check,
   ArrowRight,
+  ShoppingBag,
+  Bike,
+  Store,
 } from 'lucide-react';
 import { sendAutomaticWhatsAppNotification } from '@/lib/whatsapp';
 
@@ -29,8 +32,9 @@ export default function AdminPedidosKanbanPage() {
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<Order | null>(null);
   const [notificationSuccess, setNotificationSuccess] = useState<string | null>(null);
 
-  // Pedidos Pronta Entrega
-  const immediateOrders = orders.filter((o) => !o.isPreOrder || !o.items.some((i) => Boolean(i.customDetails)));
+  // Filtro Estrito: Apenas Pedidos de Pronta Entrega (Cozinha Imediata / Delivery na hora)
+  // Encomendas antecipadas, bolos decorados e pedidos da planilha do parceiro (#EX-) ficam 100% no Calendário
+  const immediateOrders = orders.filter(isImmediateOrder);
 
   const handleNotifyCustomer = async (order: Order) => {
     const result = await sendAutomaticWhatsAppNotification(
@@ -137,6 +141,21 @@ export default function AdminPedidosKanbanPage() {
                           </span>
                         </div>
 
+                        {/* Tipo de Entrega: Delivery vs Retirada Balcão */}
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          {order.deliveryType === 'delivery' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-800 border border-blue-200 font-medium">
+                              <Bike className="w-3 h-3 text-blue-600" />
+                              <span>Delivery {order.deliveryNeighborhood ? `• ${order.deliveryNeighborhood}` : ''}</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FAF7F3] text-[#7A5A43] border border-[#D5BFA8] font-medium">
+                              <Store className="w-3 h-3 text-[#A67540]" />
+                              <span>Retirada Balcão</span>
+                            </span>
+                          )}
+                        </div>
+
                         {/* Items */}
                         <div className="space-y-1 text-xs">
                           {order.items.map((item, idx) => (
@@ -145,6 +164,12 @@ export default function AdminPedidosKanbanPage() {
                             </div>
                           ))}
                         </div>
+
+                        {order.notes && (
+                          <p className="text-[11px] text-[#7A5A43] italic bg-[#FAF7F3] p-1.5 rounded-lg border border-[#F2E8DF]">
+                            &ldquo;{order.notes}&rdquo;
+                          </p>
+                        )}
 
                         {/* Actions */}
                         <div className="pt-2 border-t border-[#F2E8DF] flex items-center justify-between gap-1 text-xs">

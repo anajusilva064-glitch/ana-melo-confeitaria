@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useStore } from '@/context/StoreContext';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { logoutAdmin, AdminUserProfile } from '@/lib/supabase-auth';
+import { isImmediateOrder, isScheduledOrder } from '@/lib/utils';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -26,8 +27,8 @@ import {
 
 const navItems = [
   { label: 'Visão Geral', href: '/admin', icon: LayoutDashboard },
-  { label: 'Pedidos Pronta Entrega', href: '/admin/pedidos', icon: ClipboardList, badgeCountKey: 'received' },
-  { label: 'Encomendas e Calendário', href: '/admin/encomendas-agenda', icon: Calendar },
+  { label: 'Pedidos Pronta Entrega', href: '/admin/pedidos', icon: ClipboardList, badgeCountKey: 'readyDelivery' },
+  { label: 'Encomendas e Calendário', href: '/admin/encomendas-agenda', icon: Calendar, badgeCountKey: 'scheduledPreOrder' },
   { label: 'Cardápio e Produtos', href: '/admin/cardapio', icon: UtensilsCrossed },
   { label: 'Sabores e Opções', href: '/admin/encomendas', icon: Cake },
   { label: 'Estoque de Insumos', href: '/admin/estoque', icon: Boxes, badgeCountKey: 'lowStock' },
@@ -163,7 +164,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push('/admin/login');
   };
 
-  const receivedOrdersCount = orders.filter((o) => o.orderStatus === 'received').length;
+  // Separação estrita dos contadores:
+  // Pedidos de Pronta Entrega para a cozinha agora
+  const readyOrdersCount = orders.filter((o) => isImmediateOrder(o) && o.orderStatus === 'received').length;
+  // Encomendas Agendadas recebidas
+  const scheduledOrdersCount = orders.filter((o) => isScheduledOrder(o) && o.orderStatus === 'received').length;
   const lowStockCount = ingredients.filter((i) => i.currentStock <= i.minStockAlert).length;
 
   return (
@@ -197,15 +202,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               const Icon = item.icon;
 
               let badge = null;
-              if (item.badgeCountKey === 'received' && receivedOrdersCount > 0) {
+              if (item.badgeCountKey === 'readyDelivery' && readyOrdersCount > 0) {
                 badge = (
                   <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#C69255] text-white">
-                    {receivedOrdersCount}
+                    {readyOrdersCount}
+                  </span>
+                );
+              } else if (item.badgeCountKey === 'scheduledPreOrder' && scheduledOrdersCount > 0) {
+                badge = (
+                  <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#A67540] text-white">
+                    {scheduledOrdersCount}
                   </span>
                 );
               } else if (item.badgeCountKey === 'lowStock' && lowStockCount > 0) {
                 badge = (
-                  <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#A67540] text-white">
+                  <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#7A5A43] text-white">
                     {lowStockCount}
                   </span>
                 );
@@ -266,10 +277,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div className="flex items-center gap-3">
-            {receivedOrdersCount > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF7F3] border border-[#D5BFA8] text-xs text-[#3D1F0D] font-medium">
+            {readyOrdersCount > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-300 text-xs text-amber-950 font-medium">
                 <Bell className="w-3.5 h-3.5 text-[#C69255]" />
-                <span>{receivedOrdersCount} novo(s) pedido(s)</span>
+                <span>{readyOrdersCount} pronta entrega na cozinha</span>
+              </div>
+            )}
+
+            {scheduledOrdersCount > 0 && (
+              <div className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FAF7F3] border border-[#D5BFA8] text-xs text-[#3D1F0D] font-medium">
+                <Calendar className="w-3.5 h-3.5 text-[#7A5A43]" />
+                <span>{scheduledOrdersCount} nova(s) encomenda(s)</span>
               </div>
             )}
             

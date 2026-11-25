@@ -250,6 +250,53 @@ export const initialIngredients: Ingredient[] = [
 ];
 
 export const initialOrders: Order[] = [
+  // PEDIDOS PRONTA ENTREGA (COZINHA IMEDIATA / DELIVERY NA HORA)
+  {
+    id: 'ord-pronta-01',
+    orderNumber: '#PR-01',
+    customerName: 'Camila Ribeiro',
+    customerPhone: '(44) 99876-5432',
+    isPreOrder: false,
+    source: 'storefront',
+    deliveryType: 'delivery',
+    deliveryAddress: 'Rua das Flores, 140',
+    deliveryNeighborhood: 'Centro',
+    deliveryFee: 12.00,
+    scheduledDate: '2026-11-25',
+    scheduledTime: '14:30',
+    items: [
+      { id: 'it-pr-1', productId: 'prod-fatia', productName: 'Fatia Suprema Red Velvet', quantity: 2, unitPrice: 22.00, totalPrice: 44.00 },
+      { id: 'it-pr-2', productId: 'prod-banoffee', productName: 'Torta Banoffee no Pote', quantity: 1, unitPrice: 20.00, totalPrice: 20.00 },
+    ],
+    totalAmount: 76.00,
+    paymentMethod: 'pix',
+    paymentStatus: 'paid',
+    orderStatus: 'preparing',
+    notes: 'Entregar na portaria do condomínio (tocar interfone)',
+    createdAt: '2026-11-25T13:10:00Z',
+  },
+  {
+    id: 'ord-pronta-02',
+    orderNumber: '#PR-02',
+    customerName: 'Lucas Ferreira',
+    customerPhone: '(44) 99123-9988',
+    isPreOrder: false,
+    source: 'storefront',
+    deliveryType: 'pickup',
+    deliveryFee: 0,
+    scheduledDate: '2026-11-25',
+    scheduledTime: '15:00',
+    items: [
+      { id: 'it-pr-3', productId: 'prod-caixa-presente', productName: 'Caixa Presente com 12 Brigadeiros Finos', quantity: 1, unitPrice: 52.00, totalPrice: 52.00 },
+    ],
+    totalAmount: 52.00,
+    paymentMethod: 'pix',
+    paymentStatus: 'paid',
+    orderStatus: 'received',
+    notes: 'Vou retirar no ateliê em 30 min',
+    createdAt: '2026-11-25T13:25:00Z',
+  },
+  // ENCOMENDAS AGENDADAS (CALENDÁRIO & FESTAS)
   {
     id: 'ord-101',
     orderNumber: '#101',

@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useStore } from '@/context/StoreContext';
 import { Order, OrderStatus } from '@/types';
-import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { formatCurrency, formatDateTime, isScheduledOrder } from '@/lib/utils';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -100,9 +100,13 @@ export default function AdminEncomendasAgendaPage() {
     source: 'partner_excel' as 'partner_excel' | 'storefront',
   });
 
-  // Filtra encomendas
+  // Filtra encomendas com estrita separação:
+  // Apenas pedidos agendados antecipadamente, bolos decorados e encomendas do parceiro
   const preOrders = useMemo(() => {
     return orders.filter((o) => {
+      // Ignora completamente pedidos de pronta entrega imediata da cozinha
+      if (!isScheduledOrder(o)) return false;
+
       const matchSource =
         sourceFilter === 'all'
           ? true
@@ -116,9 +120,15 @@ export default function AdminEncomendasAgendaPage() {
     });
   }, [orders, sourceFilter, statusFilter]);
 
-  // Contadores
-  const partnerOrdersCount = useMemo(() => orders.filter((o) => o.source === 'partner_excel').length, [orders]);
-  const storefrontOrdersCount = useMemo(() => orders.filter((o) => o.source !== 'partner_excel').length, [orders]);
+  // Contadores de Encomendas Agendadas
+  const partnerOrdersCount = useMemo(
+    () => orders.filter((o) => isScheduledOrder(o) && o.source === 'partner_excel').length,
+    [orders]
+  );
+  const storefrontOrdersCount = useMemo(
+    () => orders.filter((o) => isScheduledOrder(o) && o.source !== 'partner_excel').length,
+    [orders]
+  );
 
   // Navegação de Mês do Calendário
   const handlePrevMonth = () => {

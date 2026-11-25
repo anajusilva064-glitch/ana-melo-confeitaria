@@ -400,18 +400,49 @@ export default function AdminCardapioPage() {
                 </div>
               </div>
 
-              {/* Checkbox Sob Encomenda */}
-              <label className="flex items-center gap-2.5 p-3 rounded-xl border border-rose-200 bg-rose-50/50 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isCustomOrder}
-                  onChange={(e) => setIsCustomOrder(e.target.checked)}
-                  className="rounded-sm border-rose-300 text-rose-500 focus:ring-rose-400"
-                />
-                <span className="text-xs text-stone-800 font-medium">
-                  Este produto requer encomenda personalizada (abre o montador de massas e recheios)
-                </span>
-              </label>
+              {/* Seleção do Tipo de Destino: Encomenda vs Pronta Entrega */}
+              <div className="space-y-1.5 pt-1">
+                <label className="block font-semibold text-stone-700 text-xs">
+                  Destino e Fluxo Operacional *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`p-3 rounded-xl border flex flex-col gap-1 cursor-pointer transition-all ${
+                    !isCustomOrder ? 'border-[#C69255] bg-amber-50/60 shadow-xs' : 'border-stone-200 bg-white'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="flowType"
+                        checked={!isCustomOrder}
+                        onChange={() => setIsCustomOrder(false)}
+                        className="text-[#C69255] focus:ring-[#C69255]"
+                      />
+                      <span className="font-bold text-xs text-stone-900">Pronta Entrega</span>
+                    </div>
+                    <span className="text-[10px] text-stone-500 leading-tight">
+                      Cozinha imediata e delivery no horário da loja (ex: fatias, sobremesas, potes).
+                    </span>
+                  </label>
+
+                  <label className={`p-3 rounded-xl border flex flex-col gap-1 cursor-pointer transition-all ${
+                    isCustomOrder ? 'border-[#C69255] bg-amber-50/60 shadow-xs' : 'border-stone-200 bg-white'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name="flowType"
+                        checked={isCustomOrder}
+                        onChange={() => setIsCustomOrder(true)}
+                        className="text-[#C69255] focus:ring-[#C69255]"
+                      />
+                      <span className="font-bold text-xs text-stone-900">Encomenda Agendada</span>
+                    </div>
+                    <span className="text-[10px] text-stone-500 leading-tight">
+                      Vai para o Calendário e exige antecedência (ex: bolos decorados e centos de festa).
+                    </span>
+                  </label>
+                </div>
+              </div>
 
               <div className="pt-4 flex gap-2">
                 <button

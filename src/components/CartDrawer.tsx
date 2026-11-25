@@ -23,6 +23,8 @@ import {
   ExternalLink,
   ShieldCheck,
   CheckCircle2,
+  Bike,
+  Store,
 } from 'lucide-react';
 
 export default function CartDrawer() {
@@ -41,7 +43,26 @@ export default function CartDrawer() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
-  // Regras de Prazos e Antecedência
+  // Entrega vs Retirada Balcão (para Pronta Entrega)
+  const [deliveryType, setDeliveryType] = useState<'pickup' | 'delivery'>('pickup');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryNeighborhood, setDeliveryNeighborhood] = useState('');
+
+  // Identifica se o carrinho contém itens de encomenda agendada (bolos comemorativos ou doces de festa)
+  const isPreOrderCart = useMemo(() => {
+    return cart.some(
+      (item) =>
+        Boolean(item.customDetails) ||
+        item.productId.includes('bolo') ||
+        item.productName.toLowerCase().includes('bolo') ||
+        item.productName.toLowerCase().includes('cento') ||
+        item.productName.toLowerCase().includes('meio cento') ||
+        item.productName.toLowerCase().includes('pacote') ||
+        item.productName.toLowerCase().includes('festa')
+    );
+  }, [cart]);
+
+  // Regras de Prazos e Antecedência (aplicáveis somente para encomendas)
   const hasCakesInCart = useMemo(() => {
     return cart.some(
       (item) =>
@@ -75,22 +96,26 @@ export default function CartDrawer() {
     setScheduledDate((prev) => (prev < computedMin ? computedMin : prev));
   }, [requiredNoticeDays]);
 
-  // Checagem de Data Bloqueada / Esgotada
+  // Checagem de Data Bloqueada / Esgotada (apenas para encomendas)
   const blockedDateInfo = useMemo(() => {
-    if (!settings.blockedDates || !scheduledDate) return null;
+    if (!isPreOrderCart || !settings.blockedDates || !scheduledDate) return null;
     return settings.blockedDates.find((b) => b.date === scheduledDate) || null;
-  }, [settings.blockedDates, scheduledDate]);
+  }, [isPreOrderCart, settings.blockedDates, scheduledDate]);
 
-  // Esquema de Pagamento: 50% de Sinal vs 100% Total
+  // Taxa de entrega se for pronta entrega com delivery
+  const deliveryFee = !isPreOrderCart && deliveryType === 'delivery' ? (settings.defaultDeliveryFee || 0) : 0;
+  const grandTotal = cartTotal + deliveryFee;
+
+  // Esquema de Pagamento: 50% de Sinal vs 100% Total (sinal exclusivo para encomendas de festa)
   const [paymentScheme, setPaymentScheme] = useState<'half_deposit' | 'full'>('half_deposit');
 
   // Método de Pagamento: Pix vs Cartão (Link Direto)
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card_link'>('pix');
 
   // Valores calculados
-  const isHalfDeposit = settings.enableHalfDepositForPreOrders && paymentScheme === 'half_deposit';
-  const amountToPayNow = isHalfDeposit ? Math.round((cartTotal / 2) * 100) / 100 : cartTotal;
-  const remainingAmount = isHalfDeposit ? Math.round((cartTotal - amountToPayNow) * 100) / 100 : 0;
+  const isHalfDeposit = isPreOrderCart && settings.enableHalfDepositForPreOrders && paymentScheme === 'half_deposit';
+  const amountToPayNow = isHalfDeposit ? Math.round((grandTotal / 2) * 100) / 100 : grandTotal;
+  const remainingAmount = isHalfDeposit ? Math.round((grandTotal - amountToPayNow) * 100) / 100 : 0;
 
   // Estado de Sucesso / Checkout Concluído
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,13 +151,27 @@ export default function CartDrawer() {
       alert('Por favor, informe seu WhatsApp para confirmação do pedido.');
       return;
     }
-    if (blockedDateInfo) {
-      alert(`A data escolhida está indisponível (${blockedDateInfo.reason || 'Capacidade Esgotada'}). Por favor, selecione outra data.`);
-      return;
-    }
-    if (scheduledDate < minDateStr) {
-      alert(`O prazo mínimo para esta encomenda é de ${requiredNoticeDays} dias. Por favor, selecione uma data a partir de ${minDateStr.split('-').reverse().join('/')}.`);
-      return;
+
+    if (isPreOrderCart) {
+      if (blockedDateInfo) {
+        alert(`A data escolhida está indisponível (${blockedDateInfo.reason || 'Capacidade Esgotada'}). Por favor, selecione outra data.`);
+        return;
+      }
+      if (scheduledDate < minDateStr) {
+        alert(`O prazo mínimo para esta encomenda é de ${requiredNoticeDays} dias. Por favor, selecione uma data a partir de ${minDateStr.split('-').reverse().join('/')}.`);
+        return;
+      }
+    } else {
+      if (deliveryType === 'delivery') {
+        if (!deliveryAddress.trim()) {
+          alert('Por favor, informe seu endereço de entrega (Rua, Número e Complemento).');
+          return;
+        }
+        if (!deliveryNeighborhood.trim()) {
+          alert('Por favor, informe o bairro para entrega em Umuarama.');
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -142,7 +181,9 @@ export default function CartDrawer() {
       let pixPayload = '';
       let pixQrCodeUrl = '';
 
-      const tempOrderNum = `PED-${Date.now().toString().slice(-4)}`;
+      const tempOrderNum = isPreOrderCart
+        ? `ENC-${Date.now().toString().slice(-4)}`
+        : `PR-${Date.now().toString().slice(-4)}`;
 
       if (paymentMethod === 'pix') {
         pixPayload = generatePixPayload({
@@ -171,14 +212,16 @@ export default function CartDrawer() {
       const createdOrder = addOrder({
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
-        isPreOrder: true,
+        isPreOrder: isPreOrderCart,
         source: 'storefront',
-        deliveryType: 'pickup',
-        deliveryFee: 0,
-        scheduledDate,
-        scheduledTime,
+        deliveryType: isPreOrderCart ? 'pickup' : deliveryType,
+        deliveryAddress: !isPreOrderCart && deliveryType === 'delivery' ? deliveryAddress.trim() : undefined,
+        deliveryNeighborhood: !isPreOrderCart && deliveryType === 'delivery' ? deliveryNeighborhood.trim() : undefined,
+        deliveryFee,
+        scheduledDate: isPreOrderCart ? scheduledDate : new Date().toISOString().split('T')[0],
+        scheduledTime: isPreOrderCart ? scheduledTime : 'Imediato (30-50 min)',
         items: cart,
-        totalAmount: cartTotal,
+        totalAmount: grandTotal,
         paymentMethod: paymentMethod === 'card_link' ? 'card_link' : 'pix',
         paymentStatus: 'pending',
         orderStatus: 'received',
@@ -193,17 +236,29 @@ export default function CartDrawer() {
       });
 
       // 3. Monta a mensagem profissional do WhatsApp
-      let msg = `*NOVA ENCOMENDA ${createdOrder.orderNumber} - ${settings.storeName.toUpperCase()}*\n\n`;
+      let msg = isPreOrderCart
+        ? `*NOVA ENCOMENDA AGENDADA ${createdOrder.orderNumber} - ${settings.storeName.toUpperCase()}*\n\n`
+        : `*NOVO PEDIDO PRONTA ENTREGA ${createdOrder.orderNumber} - ${settings.storeName.toUpperCase()}*\n\n`;
+
       msg += `*Cliente:* ${customerName.trim()}\n`;
       msg += `*Telefone:* ${customerPhone.trim()}\n`;
-      msg += `*Data de Retirada:* ${scheduledDate.split('-').reverse().join('/')} às ${scheduledTime}\n`;
 
-      const pickupLocation = settings.showExactAddressPublicly
-        ? settings.address
-        : (settings.publicAddressText || 'Ateliê em Umuarama - PR (Endereço para retirada enviado na confirmação)');
-      msg += `*Local de Retirada:* ${pickupLocation}\n\n`;
+      if (isPreOrderCart) {
+        msg += `*Data de Retirada Agendada:* ${scheduledDate.split('-').reverse().join('/')} às ${scheduledTime}\n`;
+        const pickupLocation = settings.showExactAddressPublicly
+          ? settings.address
+          : (settings.publicAddressText || 'Ateliê em Umuarama - PR (Endereço para retirada enviado na confirmação)');
+        msg += `*Local de Retirada:* ${pickupLocation}\n\n`;
+      } else {
+        if (deliveryType === 'delivery') {
+          msg += `*Modalidade:* Delivery Imediato (Moto-Entrega)\n`;
+          msg += `*Endereço de Entrega:* ${deliveryAddress.trim()}, ${deliveryNeighborhood.trim()} - Umuarama\n\n`;
+        } else {
+          msg += `*Modalidade:* Retirada Imediata no Ateliê (~30 min)\n\n`;
+        }
+      }
 
-      msg += `*ITENS DA ENCOMENDA:*\n`;
+      msg += `*ITENS DO PEDIDO:*\n`;
       cart.forEach((item, idx) => {
         msg += `${idx + 1}. ${item.quantity}x ${item.productName} - ${formatCurrency(item.totalPrice)}\n`;
         if (item.customDetails) {
@@ -219,12 +274,17 @@ export default function CartDrawer() {
         }
       });
 
-      msg += `\n*VALOR TOTAL:* ${formatCurrency(cartTotal)}\n`;
+      if (deliveryFee > 0) {
+        msg += `\n*Subtotal:* ${formatCurrency(cartTotal)}`;
+        msg += `\n*Taxa de Entrega:* ${formatCurrency(deliveryFee)}`;
+      }
+
+      msg += `\n*VALOR TOTAL:* ${formatCurrency(grandTotal)}\n`;
 
       if (isHalfDeposit) {
-        msg += `*CONDIÇÃO DE ENCOMENDA:* Sinal de 50% (${formatCurrency(amountToPayNow)}) agora + 50% restante (${formatCurrency(remainingAmount)}) na véspera da entrega.\n`;
+        msg += `*CONDIÇÃO:* Sinal de 50% (${formatCurrency(amountToPayNow)}) agora + 50% restante (${formatCurrency(remainingAmount)}) na véspera da entrega.\n`;
       } else {
-        msg += `*CONDIÇÃO DE ENCOMENDA:* Pagamento Integral 100% (${formatCurrency(cartTotal)}).\n`;
+        msg += `*CONDIÇÃO:* Pagamento Integral 100% (${formatCurrency(grandTotal)}).\n`;
       }
 
       if (paymentMethod === 'pix') {
@@ -542,22 +602,20 @@ export default function CartDrawer() {
               ))}
             </div>
 
-            {/* Aviso de Retirada */}
-            <div className="p-3.5 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] flex items-start gap-2.5">
-              <MapPin className="w-4 h-4 text-[#C69255] shrink-0 mt-0.5" />
-              <div className="text-[11px] text-[#5A3821] leading-relaxed">
-                <strong>Retirada no Ateliê:</strong>{' '}
-                {settings.showExactAddressPublicly
-                  ? settings.address
-                  : (settings.publicAddressText || 'Umuarama - PR (Endereço completo para retirada enviado na confirmação)')}
-              </div>
-            </div>
-
-            {/* FORMULÁRIO DE AGENDAMENTO & PRAZOS */}
+            {/* FORMULÁRIO DE FINALIZAÇÃO */}
             <div className="space-y-3 pt-2 border-t border-[#E8D5C4]">
-              <span className="text-[11px] font-semibold text-[#7A5A43] uppercase tracking-wider block">
-                Agendamento da Encomenda
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-[#7A5A43] uppercase tracking-wider block">
+                  {isPreOrderCart ? 'Agendamento da Encomenda (Festa)' : 'Pedido Pronta Entrega (Cozinha)'}
+                </span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  isPreOrderCart
+                    ? 'bg-[#FAF7F3] text-[#C69255] border-[#E8D5C4]'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                }`}>
+                  {isPreOrderCart ? 'Data Antecipada' : 'Preparo Imediato'}
+                </span>
+              </div>
 
               <div className="space-y-2.5">
                 <input
@@ -576,62 +634,141 @@ export default function CartDrawer() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
                 />
 
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <div>
-                    <label className="text-[10px] text-[#7A5A43] font-semibold block mb-1">
-                      Data da Retirada *
-                    </label>
-                    <input
-                      type="date"
-                      min={minDateStr}
-                      value={scheduledDate}
-                      onChange={(e) => setScheduledDate(e.target.value)}
-                      className={`w-full px-3 py-2 rounded-xl border text-xs focus:outline-hidden ${
-                        blockedDateInfo
-                          ? 'border-red-400 bg-red-50 text-red-900'
-                          : 'border-[#D5BFA8] bg-white'
-                      }`}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] text-[#7A5A43] font-semibold block mb-1">
-                      Horário Aprox. *
-                    </label>
-                    <input
-                      type="time"
-                      value={scheduledTime}
-                      onChange={(e) => setScheduledTime(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs bg-white focus:outline-hidden"
-                    />
-                  </div>
-                </div>
-
-                {/* Aviso de Prazo Mínimo */}
-                <div className="text-[10px] text-[#7A5A43] flex items-center gap-1.5 px-1">
-                  <Clock className="w-3.5 h-3.5 text-[#C69255] shrink-0" />
-                  <span>
-                    Prazo mínimo de preparo:{' '}
-                    <strong>{requiredNoticeDays} dias de antecedência</strong>{' '}
-                    {hasCakesInCart ? '(para bolos artesanais)' : '(para doces de festa)'}.
-                  </span>
-                </div>
-
-                {/* Alerta de Data Bloqueada / Capacidade Esgotada */}
-                {blockedDateInfo && (
-                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[11px] flex items-start gap-2 animate-in fade-in">
-                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong>Data Indisponível:</strong> {blockedDateInfo.reason || 'Capacidade Esgotada'}.
-                      <p className="text-[10px] text-red-700 mt-0.5">
-                        Já atingimos o limite máximo de produções para este dia. Por gentileza, escolha outra data.
-                      </p>
+                {/* CENÁRIO 1: ENCOMENDA DE FESTA (AGENDADA) */}
+                {isPreOrderCart ? (
+                  <>
+                    {/* Aviso de Retirada */}
+                    <div className="p-3.5 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] flex items-start gap-2.5">
+                      <MapPin className="w-4 h-4 text-[#C69255] shrink-0 mt-0.5" />
+                      <div className="text-[11px] text-[#5A3821] leading-relaxed">
+                        <strong>Retirada no Ateliê:</strong>{' '}
+                        {settings.showExactAddressPublicly
+                          ? settings.address
+                          : (settings.publicAddressText || 'Umuarama - PR (Endereço completo enviado na confirmação)')}
+                      </div>
                     </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div>
+                        <label className="text-[10px] text-[#7A5A43] font-semibold block mb-1">
+                          Data da Retirada *
+                        </label>
+                        <input
+                          type="date"
+                          min={minDateStr}
+                          value={scheduledDate}
+                          onChange={(e) => setScheduledDate(e.target.value)}
+                          className={`w-full px-3 py-2 rounded-xl border text-xs focus:outline-hidden ${
+                            blockedDateInfo
+                              ? 'border-red-400 bg-red-50 text-red-900'
+                              : 'border-[#D5BFA8] bg-white'
+                          }`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-[#7A5A43] font-semibold block mb-1">
+                          Horário Aprox. *
+                        </label>
+                        <input
+                          type="time"
+                          value={scheduledTime}
+                          onChange={(e) => setScheduledTime(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-[#D5BFA8] text-xs bg-white focus:outline-hidden"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Aviso de Prazo Mínimo */}
+                    <div className="text-[10px] text-[#7A5A43] flex items-center gap-1.5 px-1">
+                      <Clock className="w-3.5 h-3.5 text-[#C69255] shrink-0" />
+                      <span>
+                        Prazo de produção:{' '}
+                        <strong>{requiredNoticeDays} dias de antecedência</strong>{' '}
+                        {hasCakesInCart ? '(para bolos artesanais)' : '(para doces de festa)'}.
+                      </span>
+                    </div>
+
+                    {/* Alerta de Data Bloqueada / Capacidade Esgotada */}
+                    {blockedDateInfo && (
+                      <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-[11px] flex items-start gap-2 animate-in fade-in">
+                        <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                        <div>
+                          <strong>Data Indisponível:</strong> {blockedDateInfo.reason || 'Capacidade Esgotada'}.
+                          <p className="text-[10px] text-red-700 mt-0.5">
+                            Já atingimos o limite de produções para este dia. Escolha outra data.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* CENÁRIO 2: PRONTA ENTREGA (COZINHA IMEDIATA / DELIVERY) */
+                  <div className="space-y-3 pt-1">
+                    <label className="text-[10px] text-[#7A5A43] font-semibold block">
+                      Como deseja receber seu pedido? *
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryType('pickup')}
+                        className={`p-3 rounded-xl border flex flex-col items-center text-center gap-1.5 transition-all ${
+                          deliveryType === 'pickup'
+                            ? 'border-[#2E1609] bg-[#FAF7F3] shadow-xs'
+                            : 'border-[#E8D5C4] bg-white hover:border-[#D5BFA8]'
+                        }`}
+                      >
+                        <Store className="w-4 h-4 text-[#C69255]" />
+                        <span className="font-bold text-xs text-[#2E1609]">Retirada Balcão</span>
+                        <span className="text-[10px] text-[#7A5A43]">Grátis • Pronto em ~30 min</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryType('delivery')}
+                        className={`p-3 rounded-xl border flex flex-col items-center text-center gap-1.5 transition-all ${
+                          deliveryType === 'delivery'
+                            ? 'border-[#2E1609] bg-[#FAF7F3] shadow-xs'
+                            : 'border-[#E8D5C4] bg-white hover:border-[#D5BFA8]'
+                        }`}
+                      >
+                        <Bike className="w-4 h-4 text-[#C69255]" />
+                        <span className="font-bold text-xs text-[#2E1609]">Delivery (Moto)</span>
+                        <span className="text-[10px] text-[#7A5A43]">
+                          {settings.defaultDeliveryFee ? `+ ${formatCurrency(settings.defaultDeliveryFee)}` : 'Entrega em Umuarama'}
+                        </span>
+                      </button>
+                    </div>
+
+                    {deliveryType === 'delivery' ? (
+                      <div className="space-y-2 pt-1 animate-in fade-in">
+                        <input
+                          type="text"
+                          placeholder="Endereço de Entrega (Rua, Número e Apto) *"
+                          value={deliveryAddress}
+                          onChange={(e) => setDeliveryAddress(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Bairro em Umuarama *"
+                          value={deliveryNeighborhood}
+                          onChange={(e) => setDeliveryNeighborhood(e.target.value)}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] text-[11px] text-[#5A3821] flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-[#C69255] shrink-0" />
+                        <span>Retirada no ateliê em Umuarama após confirmação de preparo.</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 <textarea
-                  placeholder="Alguma observação especial, cores ou tema da festa?"
+                  placeholder="Observações do pedido ou ponto de referência?"
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -640,8 +777,8 @@ export default function CartDrawer() {
               </div>
             </div>
 
-            {/* ESQUEMA DE PAGAMENTO: 50% SINAL OU 100% TOTAL */}
-            {settings.enableHalfDepositForPreOrders && (
+            {/* ESQUEMA DE PAGAMENTO: 50% SINAL OU 100% TOTAL (APENAS PARA ENCOMENDAS) */}
+            {isPreOrderCart && settings.enableHalfDepositForPreOrders && (
               <div className="space-y-2.5 pt-2 border-t border-[#E8D5C4]">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold text-[#7A5A43] uppercase tracking-wider">
@@ -765,6 +902,13 @@ export default function CartDrawer() {
                 <span>{formatCurrency(cartTotal)}</span>
               </div>
 
+              {deliveryFee > 0 && (
+                <div className="flex justify-between text-xs text-[#7A5A43]">
+                  <span>Taxa de Entrega (Delivery)</span>
+                  <span className="font-semibold text-[#2E1609]">{formatCurrency(deliveryFee)}</span>
+                </div>
+              )}
+
               {isHalfDeposit && (
                 <div className="flex justify-between text-xs text-amber-900 font-medium">
                   <span>Sinal de 50% a pagar agora</span>
@@ -773,7 +917,7 @@ export default function CartDrawer() {
               )}
 
               <div className="flex justify-between text-[#2E1609] font-bold text-base pt-1 border-t border-[#E8D5C4]">
-                <span>{isHalfDeposit ? 'Valor a Pagar Agora' : 'Total da Encomenda'}</span>
+                <span>{isHalfDeposit ? 'Valor a Pagar Agora' : 'Total do Pedido'}</span>
                 <span className="font-sans text-lg">{formatCurrency(amountToPayNow)}</span>
               </div>
             </div>
@@ -791,7 +935,9 @@ export default function CartDrawer() {
                   ? 'Data Indisponível (Selecione Outra)'
                   : isHalfDeposit
                   ? `Confirmar Encomenda com Sinal (${formatCurrency(amountToPayNow)})`
-                  : `Confirmar Encomenda (${formatCurrency(cartTotal)})`}
+                  : isPreOrderCart
+                  ? `Confirmar Encomenda (${formatCurrency(grandTotal)})`
+                  : `Confirmar Pedido Pronta Entrega (${formatCurrency(grandTotal)})`}
               </span>
             </button>
           </div>

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { Order } from '@/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -44,3 +45,47 @@ export function createWhatsAppLink(phone: string, message: string): string {
   const target = cleaned.startsWith('55') ? cleaned : `55${cleaned}`;
   return `https://wa.me/${target}?text=${encodeURIComponent(message)}`;
 }
+
+/**
+ * Determina se um pedido é uma Encomenda Programada (Calendário de Encomendas).
+ * Encomendas são:
+ * - Pedidos agendados antecipadamente (isPreOrder = true)
+ * - Pedidos sincronizados da planilha do parceiro (source = 'partner_excel' ou #EX-)
+ * - Pedidos de bolos comemorativos e doces de festa (centos, pacotes de festa)
+ */
+export function isScheduledOrder(order: Order): boolean {
+  if (order.source === 'partner_excel') return true;
+  if (order.orderNumber?.startsWith('#EX-')) return true;
+  if (order.isPreOrder) return true;
+
+  // Checa itens de encomenda festiva
+  const hasScheduledItems = order.items?.some((item) => {
+    if (item.customDetails) return true;
+    const name = item.productName?.toLowerCase() || '';
+    const id = item.productId?.toLowerCase() || '';
+    return (
+      name.includes('cento') ||
+      name.includes('meio cento') ||
+      name.includes('pacote de doces') ||
+      name.includes('pacote especial') ||
+      name.includes('pacote a escolher') ||
+      name.includes('festa') ||
+      name.includes('aniversário') ||
+      name.includes('decorado') ||
+      name.includes('personalizado') ||
+      id.includes('cento') ||
+      id.includes('bolo')
+    );
+  });
+
+  return Boolean(hasScheduledItems);
+}
+
+/**
+ * Determina se um pedido é de Pronta Entrega (Cozinha Imediata / Delivery na hora).
+ * São pedidos feitos durante o horário da loja para consumo imediato (fatias, potes, sobremesas prontas).
+ */
+export function isImmediateOrder(order: Order): boolean {
+  return !isScheduledOrder(order);
+}
+
