@@ -43,3 +43,5 @@ next-env.d.ts
 .vercel
 
 .whatsapp_auth/
+whatsapp_auth.json
+*.whatsapp_auth*
