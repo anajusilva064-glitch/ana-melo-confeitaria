@@ -4,21 +4,22 @@ import React, { useState } from 'react';
 import { useStore } from '@/context/StoreContext';
 import { CustomOrderOption, CustomOptionType } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, X, RefreshCw } from 'lucide-react';
 
 const tabs: { type: CustomOptionType; label: string }[] = [
-  { type: 'sweet_gourmet', label: 'Doces Gourmet de Festa' },
-  { type: 'sweet_traditional', label: 'Doces Tradicionais de Festa' },
-  { type: 'wrapper', label: 'Forminhas e Embalagens' },
-  { type: 'size', label: 'Tamanhos de Bolo' },
-  { type: 'dough', label: 'Massas de Bolo' },
+  { type: 'sweet_gourmet', label: 'Doces Gourmet (R$ 180/cento)' },
+  { type: 'sweet_traditional', label: 'Doces Tradicionais (R$ 140/cento)' },
+  { type: 'sweet_fine', label: 'Doces Finos' },
   { type: 'filling', label: 'Recheios de Bolo' },
-  { type: 'topping', label: 'Coberturas de Bolo' },
-  { type: 'extra', label: 'Adicionais de Bolo' },
+  { type: 'topping', label: 'Decorações de Bolo' },
+  { type: 'dough', label: 'Massas de Bolo' },
+  { type: 'size', label: 'Tamanhos de Bolo' },
+  { type: 'wrapper', label: 'Forminhas Especiais' },
+  { type: 'extra', label: 'Adicionais & Topos' },
 ];
 
 export default function AdminEncomendasPage() {
-  const { customOptions, addCustomOption, updateCustomOption, deleteCustomOption } = useStore();
+  const { customOptions, addCustomOption, updateCustomOption, deleteCustomOption, resetCustomOptionsToDefault } = useStore();
 
   const [activeTab, setActiveTab] = useState<CustomOptionType>('sweet_gourmet');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,13 +86,33 @@ export default function AdminEncomendasPage() {
           </p>
         </div>
 
-        <button
-          onClick={openNewModal}
-          className="px-4 py-2.5 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-xs transition-colors self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Cadastrar Opção / Sabor</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                confirm(
+                  'Deseja recarregar todos os itens oficiais dos cardápios da Ana Melo Confeitaria (Doces Tradicionais, Gourmet, Finos e Bolos)?'
+                )
+              ) {
+                resetCustomOptionsToDefault();
+              }
+            }}
+            className="px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Recarrega todos os sabores e itens oficiais conforme os PDFs de cardápios"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-amber-700" />
+            <span>Restaurar Cardápio Oficial</span>
+          </button>
+
+          <button
+            onClick={openNewModal}
+            className="px-4 py-2.5 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Cadastrar Opção / Sabor</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

@@ -41,6 +41,7 @@ type StoreContextType = {
   addCustomOption: (opt: Omit<CustomOrderOption, 'id'>) => void;
   updateCustomOption: (id: string, updates: Partial<CustomOrderOption>) => void;
   deleteCustomOption: (id: string) => void;
+  resetCustomOptionsToDefault: () => void;
 
   // Estoque & Insumos
   ingredients: Ingredient[];
@@ -117,7 +118,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       // Limpeza de cache antigo para garantir que os dados reais da Ana Melo Confeitaria sejam aplicados
       ['ana_melo_settings', 'ana_melo_orders', 'ana_melo_products', 'ana_melo_categories',
-       'ana_melo_settings_v3', 'ana_melo_products_v3', 'ana_melo_categories_v3', 'ana_melo_custom_options_v3'].forEach(k => {
+       'ana_melo_settings_v3', 'ana_melo_products_v3', 'ana_melo_categories_v3', 'ana_melo_custom_options_v3', 'ana_melo_custom_options_v5'].forEach(k => {
         try { localStorage.removeItem(k); } catch {}
       });
 
@@ -156,9 +157,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setProducts(initialProducts);
       }
 
-      const savedCustomOptions = localStorage.getItem('ana_melo_custom_options_v5');
+      const savedCustomOptions = localStorage.getItem('ana_melo_custom_options_v6');
       if (savedCustomOptions) {
-        setCustomOptions(JSON.parse(savedCustomOptions));
+        const parsed = JSON.parse(savedCustomOptions);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCustomOptions(parsed);
+        } else {
+          setCustomOptions(initialCustomOptions);
+        }
       } else {
         setCustomOptions(initialCustomOptions);
       }
@@ -212,7 +218,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_custom_options_v5', JSON.stringify(customOptions));
+    localStorage.setItem('ana_melo_custom_options_v6', JSON.stringify(customOptions));
   }, [customOptions, isClient]);
 
   useEffect(() => {
@@ -280,6 +286,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteCustomOption = (id: string) => {
     setCustomOptions((prev) => prev.filter((o) => o.id !== id));
+  };
+
+  const resetCustomOptionsToDefault = () => {
+    setCustomOptions(initialCustomOptions);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ana_melo_custom_options_v6', JSON.stringify(initialCustomOptions));
+    }
   };
 
   // Funções de Insumos & Estoque
@@ -613,6 +626,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addCustomOption,
         updateCustomOption,
         deleteCustomOption,
+        resetCustomOptionsToDefault,
         ingredients,
         addIngredient,
         updateIngredient,

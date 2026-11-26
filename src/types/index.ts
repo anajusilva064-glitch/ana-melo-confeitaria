@@ -33,6 +33,7 @@ export type CustomOptionType =
   | 'sweet_size'
   | 'sweet_traditional'
   | 'sweet_gourmet'
+  | 'sweet_fine'
   | 'wrapper';
 
 export type CustomOrderOption = {

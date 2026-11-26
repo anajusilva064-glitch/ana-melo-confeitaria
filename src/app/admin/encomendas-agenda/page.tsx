@@ -806,28 +806,56 @@ export default function AdminEncomendasAgendaPage() {
                             <span className={isCancelled ? 'line-through opacity-70' : ''}>{formatCurrency(ord.totalAmount)}</span>
                             <div className="flex items-center gap-1">
                               <span className="opacity-75">{ord.scheduledTime}</span>
-                              <button
-                                type="button"
-                                title={isCancelled ? 'Reativar Encomenda' : 'Cancelar Encomenda'}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCancelOrder(ord);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 hover:text-amber-600 transition-opacity p-0.5 cursor-pointer"
-                              >
-                                <Ban className="w-3 h-3 text-amber-700" />
-                              </button>
-                              <button
-                                type="button"
-                                title="Excluir Encomenda Definitivamente"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteOrder(ord);
-                                }}
-                                className="opacity-0 group-hover:opacity-100 hover:text-rose-600 transition-opacity p-0.5 cursor-pointer"
-                              >
-                                <Trash2 className="w-3 h-3 text-rose-600" />
-                              </button>
+                              {isPartner ? (
+                                <button
+                                  type="button"
+                                  title={isFinished ? 'Marcar como Pendente' : 'Marcar como Feito ✓'}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const nextStatus = isFinished ? 'received' : 'finished';
+                                    updateOrderStatus(ord.id, nextStatus);
+                                    setSyncToast(
+                                      nextStatus === 'finished'
+                                        ? `Encomenda de "${ord.customerName}" marcada como FEITA ✓`
+                                        : `Encomenda de "${ord.customerName}" desmarcada como feita`
+                                    );
+                                    setTimeout(() => setSyncToast(null), 3000);
+                                  }}
+                                  className={`px-1.5 py-0.5 rounded text-[8px] font-bold transition-all cursor-pointer flex items-center gap-0.5 ${
+                                    isFinished
+                                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                      : 'bg-amber-100 hover:bg-emerald-100 text-amber-900 hover:text-emerald-800'
+                                  }`}
+                                >
+                                  <Check className="w-2.5 h-2.5" />
+                                  <span>{isFinished ? 'Feito ✓' : 'Fazer'}</span>
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    title={isCancelled ? 'Reativar Encomenda' : 'Cancelar Encomenda'}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCancelOrder(ord);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 hover:text-amber-600 transition-opacity p-0.5 cursor-pointer"
+                                  >
+                                    <Ban className="w-3 h-3 text-amber-700" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    title="Excluir Encomenda Definitivamente"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteOrder(ord);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 hover:text-rose-600 transition-opacity p-0.5 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3 h-3 text-rose-600" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -990,22 +1018,49 @@ export default function AdminEncomendasAgendaPage() {
                             </div>
 
                             <div className="flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleCancelOrder(order)}
-                                className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-800 transition-colors cursor-pointer"
-                                title={order.orderStatus === 'cancelled' ? 'Reativar Encomenda' : 'Cancelar Encomenda'}
-                              >
-                                <Ban className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteOrder(order)}
-                                className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer"
-                                title="Excluir Encomenda Definitivamente"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {isPartner ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = order.orderStatus === 'finished' ? 'received' : 'finished';
+                                    updateOrderStatus(order.id, next);
+                                    setSyncToast(
+                                      next === 'finished'
+                                        ? `Encomenda de "${order.customerName}" marcada como FEITA ✓`
+                                        : `Encomenda de "${order.customerName}" marcada como PENDENTE`
+                                    );
+                                    setTimeout(() => setSyncToast(null), 3000);
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                                    order.orderStatus === 'finished'
+                                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                      : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                                  }`}
+                                  title="Marcar se você já fez a encomenda do parceiro"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>{order.orderStatus === 'finished' ? '✓ Já Fiz' : 'Marcar Feito'}</span>
+                                </button>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleCancelOrder(order)}
+                                    className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-800 transition-colors cursor-pointer"
+                                    title={order.orderStatus === 'cancelled' ? 'Reativar Encomenda' : 'Cancelar Encomenda'}
+                                  >
+                                    <Ban className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteOrder(order)}
+                                    className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer"
+                                    title="Excluir Encomenda Definitivamente"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
 
                               {prevStatus && (
                                 <button
@@ -1227,63 +1282,114 @@ export default function AdminEncomendasAgendaPage() {
               </div>
             </div>
 
-            {/* Status Change Buttons */}
-            <div className="space-y-2">
-              <span className="font-bold text-xs uppercase tracking-wider text-[#6E4F38] block">
-                Alterar Status de Produção
-              </span>
-              <div className="grid grid-cols-4 gap-2">
-                {agendaColumns.map((col) => (
+            {/* Controle de Produção / Ações da Encomenda */}
+            {selectedOrderDetails.source === 'partner_excel' ? (
+              <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-300 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <FileSpreadsheet className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-[#2E1609] text-xs">
+                      Encomenda Sincronizada da Planilha do Parceiro (OneDrive)
+                    </h4>
+                    <p className="text-[11px] text-[#7A5A43] mt-0.5">
+                      Esta encomenda é atualizada pelo parceiro na planilha. No sistema, você controla apenas se ela já foi feita ou não para seu fluxo de trabalho.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-amber-200 flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-[#2E1609]">
+                    Status de Produção no Ateliê:
+                  </span>
                   <button
-                    key={col.id}
+                    type="button"
                     onClick={() => {
-                      updateOrderStatus(selectedOrderDetails.id, col.id);
-                      setSelectedOrderDetails((prev) => (prev ? { ...prev, orderStatus: col.id } : null));
+                      const next = selectedOrderDetails.orderStatus === 'finished' ? 'received' : 'finished';
+                      updateOrderStatus(selectedOrderDetails.id, next);
+                      setSelectedOrderDetails((prev) => (prev ? { ...prev, orderStatus: next } : null));
+                      setSyncToast(
+                        next === 'finished'
+                          ? `Encomenda ${selectedOrderDetails.orderNumber} marcada como FEITA ✓`
+                          : `Encomenda ${selectedOrderDetails.orderNumber} marcada como PENDENTE`
+                      );
+                      setTimeout(() => setSyncToast(null), 3000);
                     }}
-                    className={`p-2 rounded-xl text-[10px] font-bold text-center border transition-all cursor-pointer ${
-                      selectedOrderDetails.orderStatus === col.id
-                        ? 'bg-[#2E1609] text-white border-[#2E1609] shadow-xs'
-                        : 'bg-[#FAF7F3] hover:bg-[#EFE4D8] border-[#D5BFA8] text-[#5A3821]'
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+                      selectedOrderDetails.orderStatus === 'finished'
+                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                        : 'bg-white hover:bg-emerald-50 border border-emerald-400 text-emerald-800'
                     }`}
                   >
-                    {col.title.split(' ')[0]}
+                    <Check className="w-4 h-4" />
+                    <span>
+                      {selectedOrderDetails.orderStatus === 'finished'
+                        ? '✓ Encomenda Feita'
+                        : 'Marcar como Feito'}
+                    </span>
                   </button>
-                ))}
+                </div>
               </div>
-            </div>
-
-            {/* Ações de Cancelamento e Exclusão */}
-            <div className="space-y-2 pt-2 border-t border-[#E8D5C4]">
-              <span className="font-bold text-xs uppercase tracking-wider text-[#6E4F38] block">
-                Ações da Encomenda
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleCancelOrder(selectedOrderDetails)}
-                  className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
-                    selectedOrderDetails.orderStatus === 'cancelled'
-                      ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900'
-                      : 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-800'
-                  }`}
-                >
-                  <Ban className="w-4 h-4 shrink-0" />
-                  <span>
-                    {selectedOrderDetails.orderStatus === 'cancelled'
-                      ? 'Reativar Encomenda'
-                      : 'Cancelar Encomenda'}
+            ) : (
+              <>
+                {/* Status Change Buttons */}
+                <div className="space-y-2">
+                  <span className="font-bold text-xs uppercase tracking-wider text-[#6E4F38] block">
+                    Alterar Status de Produção
                   </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDeleteOrder(selectedOrderDetails)}
-                  className="p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 border border-red-300 text-red-700 transition-all cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4 shrink-0" />
-                  <span>Excluir Definitivamente</span>
-                </button>
-              </div>
-            </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {agendaColumns.map((col) => (
+                      <button
+                        key={col.id}
+                        onClick={() => {
+                          updateOrderStatus(selectedOrderDetails.id, col.id);
+                          setSelectedOrderDetails((prev) => (prev ? { ...prev, orderStatus: col.id } : null));
+                        }}
+                        className={`p-2 rounded-xl text-[10px] font-bold text-center border transition-all cursor-pointer ${
+                          selectedOrderDetails.orderStatus === col.id
+                            ? 'bg-[#2E1609] text-white border-[#2E1609] shadow-xs'
+                            : 'bg-[#FAF7F3] hover:bg-[#EFE4D8] border-[#D5BFA8] text-[#5A3821]'
+                        }`}
+                      >
+                        {col.title.split(' ')[0]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ações de Cancelamento e Exclusão */}
+                <div className="space-y-2 pt-2 border-t border-[#E8D5C4]">
+                  <span className="font-bold text-xs uppercase tracking-wider text-[#6E4F38] block">
+                    Ações da Encomenda
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCancelOrder(selectedOrderDetails)}
+                      className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                        selectedOrderDetails.orderStatus === 'cancelled'
+                          ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900'
+                          : 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-800'
+                      }`}
+                    >
+                      <Ban className="w-4 h-4 shrink-0" />
+                      <span>
+                        {selectedOrderDetails.orderStatus === 'cancelled'
+                          ? 'Reativar Encomenda'
+                          : 'Cancelar Encomenda'}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteOrder(selectedOrderDetails)}
+                      className="p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 border border-red-300 text-red-700 transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4 shrink-0" />
+                      <span>Excluir Definitivamente</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Footer Actions */}
             <div className="pt-3 border-t border-[#E8D5C4] flex items-center justify-between gap-3">

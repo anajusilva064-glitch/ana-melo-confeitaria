@@ -64,21 +64,21 @@ export const initialProducts: Product[] = [
     id: 'prod-cento-gourmet',
     categoryId: 'cat-1',
     name: 'Cento de Doces Gourmet de Festa (100 unidades)',
-    description: '100 doces finos artesanais enrolados à mão com confeitos especiais. Escolha até 4 sabores para compor seu cento (25 de cada).',
-    price: 190.00,
+    description: '100 doces gourmet artesanais enrolados à mão (Ninho com Nutella, Ferrero, Crème Brûlée, Oreo, KitKat, etc). Escolha até 4 sabores (25 de cada).',
+    price: 180.00,
     imageUrl: 'https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=800&auto=format&fit=crop&q=80',
     isAvailable: true,
     isCustomOrder: true,
     productType: 'sweets',
     prepTimeMinutes: 2880,
-    highlightBadge: 'Carro-Chefe',
+    highlightBadge: 'R$ 180 / 100 un',
   },
   {
     id: 'prod-meio-gourmet',
     categoryId: 'cat-1',
     name: 'Meio Cento Gourmet de Festa (50 unidades)',
-    description: '50 doces finos artesanais gourmet. Escolha até 2 sabores (25 de cada) para comemorações menores e reuniões familiares.',
-    price: 100.00,
+    description: '50 doces gourmet artesanais. Escolha até 2 sabores (25 de cada) para comemorações menores e reuniões familiares.',
+    price: 90.00,
     imageUrl: 'https://images.unsplash.com/photo-1582293041079-7814c2f12063?w=800&auto=format&fit=crop&q=80',
     isAvailable: true,
     isCustomOrder: true,
@@ -92,21 +92,21 @@ export const initialProducts: Product[] = [
     id: 'prod-cento-tradicional',
     categoryId: 'cat-2',
     name: 'Cento de Doces Tradicionais de Festa (100 unidades)',
-    description: 'Os clássicos inesquecíveis de aniversário infantil e eventos: brigadeiro ao leite, beijinho de coco, bicho de pé, dois amores e cajuzinho. Escolha até 4 sabores.',
-    price: 150.00,
+    description: 'Os clássicos de aniversário e eventos: brigadeiro ao leite, beijinho, bem casado, prestígio, paçoca, limão, romeu e julieta, bicho de pé. Escolha até 4 sabores.',
+    price: 140.00,
     imageUrl: 'https://images.unsplash.com/photo-1514517521153-1be72277b32f?w=800&auto=format&fit=crop&q=80',
     isAvailable: true,
     isCustomOrder: true,
     productType: 'sweets',
     prepTimeMinutes: 2880,
-    highlightBadge: 'Clássico de Aniversário',
+    highlightBadge: 'R$ 140 / 100 un',
   },
   {
     id: 'prod-meio-tradicional',
     categoryId: 'cat-2',
     name: 'Meio Cento Tradicional de Festa (50 unidades)',
     description: '50 doces tradicionais de festa. Escolha até 2 sabores clássicos para festas infantis e celebrações.',
-    price: 80.00,
+    price: 70.00,
     imageUrl: 'https://images.unsplash.com/photo-1587314168485-3236d6710814?w=800&auto=format&fit=crop&q=80',
     isAvailable: true,
     isCustomOrder: true,
@@ -117,8 +117,8 @@ export const initialProducts: Product[] = [
     id: 'prod-caixa-25',
     categoryId: 'cat-2',
     name: 'Caixa de Doces Sortidos (25 unidades)',
-    description: 'Caixa com 25 docinhos artesanais (escolha 1 ou 2 sabores). Perfeito para confraternizações, aniversários de escritório ou lanches especiais.',
-    price: 45.00,
+    description: 'Caixa com 25 docinhos artesanais (mínimo de encomenda). Perfeito para confraternizações, aniversários ou lanches especiais.',
+    price: 35.00,
     imageUrl: 'https://images.unsplash.com/photo-1541783245831-57d6fb0926d3?w=800&auto=format&fit=crop&q=80',
     isAvailable: true,
     isCustomOrder: true,
@@ -130,15 +130,15 @@ export const initialProducts: Product[] = [
   {
     id: 'prod-bolo-festivo',
     categoryId: 'cat-3',
-    name: 'Bolo Decorado Personalizado',
-    description: 'Bolo comemorativo artesanal. Escolha o número de fatias, massa fofinha amanteigada, dois recheios e acabamento espatulado.',
-    price: 140.00,
+    name: 'Bolo Decorado Personalizado (a partir de 1 kg)',
+    description: 'Bolo artesanal comemorativo a partir de 1 kg. Recheios Tradicionais (R$ 65/kg) ou Gourmets (R$ 80/kg). Escolha tamanho, massa, recheios e decoração.',
+    price: 65.00,
     imageUrl: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=800&auto=format&fit=crop&q=80',
     isAvailable: true,
     isCustomOrder: true,
     productType: 'cake',
     prepTimeMinutes: 2880,
-    highlightBadge: 'Sob Encomenda',
+    highlightBadge: 'R$ 65/kg a R$ 80/kg',
   },
   {
     id: 'prod-bento',
@@ -190,50 +190,120 @@ export const initialProducts: Product[] = [
 ];
 
 export const initialCustomOptions: CustomOrderOption[] = [
-  // --- SABORES DE DOCES GOURMET DE FESTA ---
-  { id: 'opt-sw-g1', type: 'sweet_gourmet', name: 'Brigadeiro Belga 54% Callebaut', description: 'Chocolate nobre meio amargo', extraPrice: 0, isAvailable: true },
-  { id: 'opt-sw-g2', type: 'sweet_gourmet', name: 'Ninho Trufado com Nutella Pura', description: 'Brigadeiro de leite Ninho com gota generosa de Nutella', extraPrice: 0, isAvailable: true },
-  { id: 'opt-sw-g3', type: 'sweet_gourmet', name: 'Pistache Supremo', description: 'Brigadeiro com pasta pura de pistache e pedacinhos crocantes', extraPrice: 15.00, isAvailable: true },
-  { id: 'opt-sw-g4', type: 'sweet_gourmet', name: 'Churros com Doce de Leite', description: 'Massa aromatizada com canela e bico de doce de leite', extraPrice: 0, isAvailable: true },
-  { id: 'opt-sw-g5', type: 'sweet_gourmet', name: 'Frutas Vermelhas com Chocolate Branco', description: 'Massa suave com toque de calda caseira de frutas vermelhas', extraPrice: 5.00, isAvailable: true },
-  { id: 'opt-sw-g6', type: 'sweet_gourmet', name: 'Surpresa de Uva Thompson', description: 'Uva verde sem semente envolta em brigadeiro branco suave', extraPrice: 10.00, isAvailable: true },
-  { id: 'opt-sw-g7', type: 'sweet_gourmet', name: 'Camafeu Nobre de Nozes', description: 'Doce fino com nozes chilenas e banho de fondant', extraPrice: 20.00, isAvailable: true },
+  // ========================================================
+  // 1. DOCES TRADICIONAIS DE FESTA (R$ 140,00 / 100 unidades)
+  // Cardápio Oficial de Doces - Ana Melo Confeitaria
+  // ========================================================
+  { id: 'opt-sw-t-1', type: 'sweet_traditional', name: 'Brigadeiro', description: 'O clássico tradicional com granulado macio', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-t-2', type: 'sweet_traditional', name: 'Beijinho', description: 'Feito com coco especial e cravo', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-t-3', type: 'sweet_traditional', name: 'Bem Casado', description: 'Doce tradicional de celebração', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-t-4', type: 'sweet_traditional', name: 'Prestígio', description: 'Chocolate com coco cremoso', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-t-5', type: 'sweet_traditional', name: 'Maracujá', description: 'Brigadeiro com toque azedinho de maracujá', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-t-6', type: 'sweet_traditional', name: 'Paçoca', description: 'Brigadeiro de amendoim com paçoca', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-t-7', type: 'sweet_traditional', name: 'Brigadeiro de Limão', description: 'Cítrico suave e refrescante', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-t-8', type: 'sweet_traditional', name: 'Romeu e Julieta', description: 'Combinação clássica de queijo com goiabada', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-t-9', type: 'sweet_traditional', name: 'Bicho de Pé', description: 'Doce rosa tradicional com sabor de morango', extraPrice: 0, isAvailable: true },
 
-  // --- SABORES DE DOCES TRADICIONAIS DE FESTA ---
-  { id: 'opt-sw-t1', type: 'sweet_traditional', name: 'Brigadeiro Tradicional ao Leite', description: 'O clássico de festa com granulado macio', extraPrice: 0, isAvailable: true },
-  { id: 'opt-sw-t2', type: 'sweet_traditional', name: 'Beijinho de Coco Artesanal', description: 'Feito com coco fresco e cravo tradicional', extraPrice: 0, isAvailable: true },
-  { id: 'opt-sw-t3', type: 'sweet_traditional', name: 'Bicho de Pé (Moranguinho)', description: 'O clássico docinho rosa de infância', extraPrice: 0, isAvailable: true },
-  { id: 'opt-sw-t4', type: 'sweet_traditional', name: 'Dois Amores (Casadinho Preto e Branco)', description: 'Metade brigadeiro preto, metade brigadeiro branco', extraPrice: 0, isAvailable: true },
-  { id: 'opt-sw-t5', type: 'sweet_traditional', name: 'Cajuzinho de Amendoim', description: 'Massa cremosa de amendoim com açúcar cristal', extraPrice: 0, isAvailable: true },
-  { id: 'opt-sw-t6', type: 'sweet_traditional', name: 'Olho de Sogra', description: 'Beijinho cremoso recheado na ameixa preta', extraPrice: 5.00, isAvailable: true },
+  // ========================================================
+  // 2. DOCES GOURMET DE FESTA (R$ 180,00 / 100 unidades)
+  // Cardápio Oficial de Doces - Ana Melo Confeitaria
+  // ========================================================
+  { id: 'opt-sw-g-1', type: 'sweet_gourmet', name: 'Ninho com Nutella', description: 'Brigadeiro de leite Ninho finalizado com Nutella pura', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-2', type: 'sweet_gourmet', name: 'Creme Brûlée', description: 'Brigadeiro suave com casquinha crocante maçaricada', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-3', type: 'sweet_gourmet', name: 'Surpresa de Uva', description: 'Uva fresca selecionada envolta em brigadeiro branco suave', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-4', type: 'sweet_gourmet', name: 'Oreo', description: 'Brigadeiro branco com pedaços crocantes de biscoito Oreo', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-5', type: 'sweet_gourmet', name: 'Ferrero Rocher', description: 'Chocolate nobre com avelãs picadas', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-6', type: 'sweet_gourmet', name: 'Churros', description: 'Massa aromatizada com canela e doce de leite cremoso', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-7', type: 'sweet_gourmet', name: 'Coco Queimado', description: 'Coco tostado artesanal com sabor caramelizado', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-8', type: 'sweet_gourmet', name: 'Cacau Crocante', description: 'Chocolate intenso com pedacinhos crocantes', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-9', type: 'sweet_gourmet', name: 'KitKat', description: 'Brigadeiro de chocolate com pedacinhos de KitKat', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-10', type: 'sweet_gourmet', name: 'Morango com Nutella', description: 'Combinação perfeita de morango e Nutella pura', extraPrice: 0, isAvailable: true },
+  { id: 'opt-sw-g-11', type: 'sweet_gourmet', name: 'Brigadeiro de Café', description: 'Toque aromático de café especial com chocolate nobre', extraPrice: 0, isAvailable: true },
 
-  // --- EMBALAGENS E FORMINHAS DE DOCE ---
-  { id: 'opt-wrap-1', type: 'wrapper', name: 'Forminha 4 Pétalas Kraft / Bege (Padrão)', extraPrice: 0, isAvailable: true },
-  { id: 'opt-wrap-2', type: 'wrapper', name: 'Forminha 4 Pétalas Marrom Chocolate', extraPrice: 0, isAvailable: true },
-  { id: 'opt-wrap-3', type: 'wrapper', name: 'Forminha 4 Pétalas Rosa Bebê', extraPrice: 0, isAvailable: true },
-  { id: 'opt-wrap-4', type: 'wrapper', name: 'Forminha de Tecido em Tela Especial', extraPrice: 25.00, isAvailable: true },
+  // ========================================================
+  // 3. DOCES FINOS (Valores Unitário / Cento)
+  // Cardápio Oficial de Doces - Ana Melo Confeitaria
+  // ========================================================
+  { id: 'opt-sw-f-1', type: 'sweet_fine', name: 'Ouriço', description: 'R$ 3,50 unitário / R$ 220,00 cento', extraPrice: 3.50, isAvailable: true },
+  { id: 'opt-sw-f-2', type: 'sweet_fine', name: 'Tulipa de Morango', description: 'R$ 4,50 unitário / R$ 380,00 cento', extraPrice: 4.50, isAvailable: true },
+  { id: 'opt-sw-f-3', type: 'sweet_fine', name: 'Uva Crocante', description: 'R$ 4,50 unitário / R$ 250,00 cento', extraPrice: 4.50, isAvailable: true },
+  { id: 'opt-sw-f-4', type: 'sweet_fine', name: 'Brigadeiro Belga', description: 'R$ 3,80 unitário / R$ 220,00 cento', extraPrice: 3.80, isAvailable: true },
+  { id: 'opt-sw-f-5', type: 'sweet_fine', name: 'Beijinho do Amor', description: 'R$ 3,50 unitário / R$ 280,00 cento', extraPrice: 3.50, isAvailable: true },
+  { id: 'opt-sw-f-6', type: 'sweet_fine', name: 'Camafeu de Nozes', description: 'R$ 4,00 unitário / R$ 300,00 cento', extraPrice: 4.00, isAvailable: true },
+  { id: 'opt-sw-f-7', type: 'sweet_fine', name: 'Caixeta Maracujá', description: 'R$ 4,00 unitário / R$ 320,00 cento', extraPrice: 4.00, isAvailable: true },
+  { id: 'opt-sw-f-8', type: 'sweet_fine', name: 'Caixeta Frutas Vermelhas c/ Limão Siciliano', description: 'R$ 4,00 unitário / R$ 320,00 cento', extraPrice: 4.00, isAvailable: true },
+  { id: 'opt-sw-f-9', type: 'sweet_fine', name: 'Caixeta Cereja', description: 'R$ 4,50 unitário / R$ 380,00 cento', extraPrice: 4.50, isAvailable: true },
+  { id: 'opt-sw-f-10', type: 'sweet_fine', name: 'Caramelo Salgado', description: 'R$ 3,50 unitário / R$ 280,00 cento', extraPrice: 3.50, isAvailable: true },
+  { id: 'opt-sw-f-11', type: 'sweet_fine', name: 'Bem Casado Fino', description: 'R$ 4,50 unitário / R$ 350,00 cento', extraPrice: 4.50, isAvailable: true },
 
-  // --- OPÇÕES DE BOLO ---
-  { id: 'opt-size-1', type: 'size', name: 'Aro 15 (10 a 12 fatias)', description: 'Aproximadamente 1,2 kg', extraPrice: 0, isAvailable: true },
-  { id: 'opt-size-2', type: 'size', name: 'Aro 20 (20 a 25 fatias)', description: 'Aproximadamente 2,2 kg', extraPrice: 70.00, isAvailable: true },
-  { id: 'opt-size-3', type: 'size', name: 'Aro 25 (35 a 40 fatias)', description: 'Aproximadamente 3,5 kg', extraPrice: 140.00, isAvailable: true },
+  // ========================================================
+  // 4. FORMINHAS E EMBALAGENS DE DOCE
+  // Cardápio Oficial - Ana Melo Confeitaria
+  // ========================================================
+  { id: 'opt-wrap-1', type: 'wrapper', name: 'Forminha Tradicional 4 Pétalas (Inclusa)', description: 'Forminha clássica nas cores do evento (sem acréscimo)', extraPrice: 0, isAvailable: true },
+  { id: 'opt-wrap-2', type: 'wrapper', name: 'Forminhas de Acetato (+ R$ 5,00/cento)', description: 'O cliente deverá fornecer as forminhas, com acréscimo de R$ 5,00 por cento', extraPrice: 5.00, isAvailable: true },
+  { id: 'opt-wrap-3', type: 'wrapper', name: 'Forminhas Florais (+ R$ 5,00/cento)', description: 'O cliente deverá fornecer as forminhas, com acréscimo de R$ 5,00 por cento', extraPrice: 5.00, isAvailable: true },
 
-  { id: 'opt-dough-1', type: 'dough', name: 'Massa de Baunilha Amanteigada', description: 'Leve e estruturada', extraPrice: 0, isAvailable: true },
-  { id: 'opt-dough-2', type: 'dough', name: 'Massa de Cacau 100%', description: 'Sabor marcante de chocolate', extraPrice: 5.00, isAvailable: true },
-  { id: 'opt-dough-3', type: 'dough', name: 'Massa Red Velvet Tradicional', description: 'Aveludada e macia', extraPrice: 10.00, isAvailable: true },
+  // ========================================================
+  // 5. TAMANHOS DE BOLO
+  // Cardápio Oficial de Bolos - Ana Melo Confeitaria (Base 1 kg)
+  // ========================================================
+  { id: 'opt-size-1', type: 'size', name: 'Bolo 1 kg (Aro 15 - 10 a 12 fatias)', description: 'Peso base de 1 kg (pode variar até 500g a mais conforme decoração)', extraPrice: 0, isAvailable: true },
+  { id: 'opt-size-2', type: 'size', name: 'Bolo 1,5 kg a 2 kg (Aro 20 - 18 a 22 fatias)', description: 'Ideal para 18 a 22 pessoas', extraPrice: 40.00, isAvailable: true },
+  { id: 'opt-size-3', type: 'size', name: 'Bolo 2,5 kg a 3 kg (Aro 25 - 28 a 35 fatias)', description: 'Ideal para 28 a 35 pessoas', extraPrice: 90.00, isAvailable: true },
 
-  { id: 'opt-fill-1', type: 'filling', name: 'Brigadeiro Belga ao Leite', extraPrice: 0, isAvailable: true, maxSelections: 2 },
-  { id: 'opt-fill-2', type: 'filling', name: 'Ninho Trufado', extraPrice: 0, isAvailable: true, maxSelections: 2 },
-  { id: 'opt-fill-3', type: 'filling', name: 'Geleia Artesanal de Frutas Vermelhas', extraPrice: 10.00, isAvailable: true, maxSelections: 2 },
-  { id: 'opt-fill-4', type: 'filling', name: 'Doce de Leite com Nozes', extraPrice: 10.00, isAvailable: true, maxSelections: 2 },
-  { id: 'opt-fill-5', type: 'filling', name: 'Quatro Leites', extraPrice: 0, isAvailable: true, maxSelections: 2 },
-  { id: 'opt-fill-6', type: 'filling', name: 'Nutella Pura', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  // ========================================================
+  // 6. MASSAS DE BOLO
+  // Cardápio Oficial de Bolos - Ana Melo Confeitaria
+  // ========================================================
+  { id: 'opt-dough-1', type: 'dough', name: 'Massa Branca de Baunilha', description: 'Leve, amanteigada, fofinha e estruturada', extraPrice: 0, isAvailable: true },
+  { id: 'opt-dough-2', type: 'dough', name: 'Massa de Chocolate Cacau 50%', description: 'Sabor marcante e textura macia', extraPrice: 0, isAvailable: true },
+  { id: 'opt-dough-3', type: 'dough', name: 'Massa Red Velvet Tradicional', description: 'Aveludada, macia e com cor marcante', extraPrice: 5.00, isAvailable: true },
 
-  { id: 'opt-top-1', type: 'topping', name: 'Chantininho Espatulado Liso', extraPrice: 0, isAvailable: true },
-  { id: 'opt-top-2', type: 'topping', name: 'Ganache de Chocolate Nobre', extraPrice: 15.00, isAvailable: true },
+  // ========================================================
+  // 7. RECHEIOS DE BOLO - TRADICIONAIS (R$ 65,00/kg)
+  // Cardápio Oficial de Bolos - Ana Melo Confeitaria
+  // ========================================================
+  { id: 'opt-fill-t-1', type: 'filling', name: 'Torta Mineira (com ou sem coco)', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-2', type: 'filling', name: 'Doce de Leite', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-3', type: 'filling', name: 'Torta de Suflair', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-4', type: 'filling', name: 'Maracujá com Chocolate', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-5', type: 'filling', name: 'Dois Amores', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-6', type: 'filling', name: 'Quatro Leites', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-7', type: 'filling', name: 'Torta de Laka', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-8', type: 'filling', name: 'Torta de Alpino', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-9', type: 'filling', name: 'Prestígio', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-10', type: 'filling', name: 'Brigadeiro de Churros', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-t-11', type: 'filling', name: 'Abacaxi com Doce de Leite', description: 'Recheio Tradicional (R$ 65,00/kg)', extraPrice: 0, isAvailable: true, maxSelections: 2 },
 
-  { id: 'opt-ext-1', type: 'extra', name: 'Topo de Bolo Personalizado (Nome e Idade)', extraPrice: 25.00, isAvailable: true },
-  { id: 'opt-ext-2', type: 'extra', name: 'Vela Faísca Estrela', extraPrice: 8.00, isAvailable: true },
+  // ========================================================
+  // 8. RECHEIOS DE BOLO - GOURMET (R$ 80,00/kg)
+  // Cardápio Oficial de Bolos - Ana Melo Confeitaria (+ R$ 15,00/kg)
+  // ========================================================
+  { id: 'opt-fill-g-1', type: 'filling', name: 'Ninho com Nutella (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-2', type: 'filling', name: 'Ninho com Morango (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-3', type: 'filling', name: 'Ninho com Brigadeiro (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-4', type: 'filling', name: 'Ninho com Geleia de Frutas Vermelhas (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-5', type: 'filling', name: 'Kinder (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-6', type: 'filling', name: 'Ouro Branco (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-7', type: 'filling', name: 'Sonho de Valsa (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-8', type: 'filling', name: 'Ferrero (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-9', type: 'filling', name: 'Chocolate com Morango (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-10', type: 'filling', name: 'Ovomaltine (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-11', type: 'filling', name: 'Torta de Raffaello (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-12', type: 'filling', name: 'Especial de Nozes com Praliné (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-13', type: 'filling', name: 'Ninho com Cream Cheese e Geleia de Frutas Vermelhas (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+  { id: 'opt-fill-g-14', type: 'filling', name: 'Limão com Geleia de Frutas (Gourmet)', description: 'Linha Gourmet (R$ 80,00/kg)', extraPrice: 15.00, isAvailable: true, maxSelections: 2 },
+
+  // ========================================================
+  // 9. DECORAÇÕES DE BOLO
+  // Cardápio Oficial de Bolos - Ana Melo Confeitaria
+  // ========================================================
+  { id: 'opt-top-1', type: 'topping', name: 'Decorações Simples (Sem Acréscimo)', description: 'Espatulado clássico suave', extraPrice: 0, isAvailable: true },
+  { id: 'opt-top-2', type: 'topping', name: 'Decoração Vintage (+ R$ 25,00)', description: 'Trabalho de bico delicado e acabamento vintage', extraPrice: 25.00, isAvailable: true },
+  { id: 'opt-top-3', type: 'topping', name: 'Decoração com Flores Naturais (+ R$ 30,00)', description: 'Flores higienizadas e selecionadas para decoração', extraPrice: 30.00, isAvailable: true },
+  { id: 'opt-top-4', type: 'topping', name: 'Decoração com Brigadeiros (+ R$ 35,00)', description: 'Brigadeiros enrolados e confeitados no topo do bolo', extraPrice: 35.00, isAvailable: true },
+  { id: 'opt-ext-1', type: 'extra', name: 'Topo de Bolo Personalizado (Consultar Terceiros)', description: 'Confeccionados por terceiros mediante disponibilidade e valores adicionais', extraPrice: 0, isAvailable: true },
 ];
 
 export const initialIngredients: Ingredient[] = [

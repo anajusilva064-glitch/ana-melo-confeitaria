@@ -43,6 +43,7 @@ export default function CustomOrderModal() {
   // Opções de Doces
   const traditionalSweets = useMemo(() => customOptions.filter((o) => o.type === 'sweet_traditional' && o.isAvailable), [customOptions]);
   const gourmetSweets = useMemo(() => customOptions.filter((o) => o.type === 'sweet_gourmet' && o.isAvailable), [customOptions]);
+  const fineSweets = useMemo(() => customOptions.filter((o) => o.type === 'sweet_fine' && o.isAvailable), [customOptions]);
   const wrappers = useMemo(() => customOptions.filter((o) => o.type === 'wrapper' && o.isAvailable), [customOptions]);
 
   // Inicialização
@@ -328,6 +329,45 @@ export default function CustomOrderModal() {
                     })}
                   </div>
                 </div>
+
+                {/* Subseção: Doces Finos */}
+                {fineSweets.length > 0 && (
+                  <div className="space-y-2 mt-5">
+                    <span className="text-[11px] font-bold text-[#7A5A43] uppercase tracking-wider block">
+                      Linha de Doces Finos
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {fineSweets.map((flavor) => {
+                        const isSelected = selectedSweetFlavors.some((f) => f.name === flavor.name);
+                        return (
+                          <div
+                            key={flavor.id}
+                            onClick={() => handleToggleSweetFlavor(flavor.name, flavor.extraPrice)}
+                            className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                              isSelected
+                                ? 'border-[#3D1F0D] bg-[#F7F2EC] shadow-2xs'
+                                : 'border-[#E8D5C4] hover:border-[#C69255]'
+                            }`}
+                          >
+                            <div>
+                              <div className="text-xs font-semibold text-[#3D1F0D]">{flavor.name}</div>
+                              {flavor.description && (
+                                <div className="text-[10px] text-[#7A5A43]">{flavor.description}</div>
+                              )}
+                            </div>
+                            <div
+                              className={`w-5 h-5 rounded-md border flex items-center justify-center ${
+                                isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-3.5 h-3.5" />}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Passo 3: Forminhas */}
