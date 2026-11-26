@@ -63,6 +63,7 @@ export default function AdminEncomendasAgendaPage() {
   const {
     orders,
     updateOrderStatus,
+    deleteOrder,
     addOrder,
     syncPartnerSpreadsheet,
     settings,
@@ -147,6 +148,46 @@ export default function AdminEncomendasAgendaPage() {
   const handleUnblockDate = (id: string) => {
     removeBlockedDate(id);
     setSyncToast('Data liberada na agenda com sucesso!');
+    setTimeout(() => setSyncToast(null), 3000);
+  };
+
+  // Cancelamento de Encomenda no Calendário
+  const handleCancelOrder = (order: Order) => {
+    const isCurrentlyCancelled = order.orderStatus === 'cancelled';
+    const confirmMsg = isCurrentlyCancelled
+      ? `Deseja reativar a encomenda de "${order.customerName}" (${order.orderNumber})?\n\nO status voltará para "Agendadas (Aguardando Data)".`
+      : `Deseja marcar a encomenda de "${order.customerName}" (${order.orderNumber}) como CANCELADA?\n\nA encomenda continuará visível no histórico mas liberará a capacidade de produção.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    const nextStatus: OrderStatus = isCurrentlyCancelled ? 'received' : 'cancelled';
+    updateOrderStatus(order.id, nextStatus);
+
+    if (selectedOrderDetails?.id === order.id) {
+      setSelectedOrderDetails((prev) => (prev ? { ...prev, orderStatus: nextStatus } : null));
+    }
+
+    setSyncToast(
+      isCurrentlyCancelled
+        ? `Encomenda ${order.orderNumber} reativada com sucesso!`
+        : `Encomenda ${order.orderNumber} marcada como cancelada!`
+    );
+    setTimeout(() => setSyncToast(null), 3000);
+  };
+
+  // Exclusão definitiva de Encomenda no Calendário
+  const handleDeleteOrder = (order: Order) => {
+    const confirmMsg = `⚠️ ATENÇÃO: Deseja realmente EXCLUIR DEFINITIVAMENTE a encomenda de "${order.customerName}" (${order.orderNumber})?\n\nEsta ação removerá o pedido permanentemente do sistema e não pode ser desfeita.`;
+
+    if (!confirm(confirmMsg)) return;
+
+    deleteOrder(order.id);
+
+    if (selectedOrderDetails?.id === order.id) {
+      setSelectedOrderDetails(null);
+    }
+
+    setSyncToast(`Encomenda ${order.orderNumber} excluída permanentemente!`);
     setTimeout(() => setSyncToast(null), 3000);
   };
 
@@ -516,6 +557,10 @@ export default function AdminEncomendasAgendaPage() {
             <span className="w-2 h-2 rounded-full bg-[#8C6D53]" />
             <span>Agendado</span>
           </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-rose-500" />
+            <span>Cancelado</span>
+          </span>
         </div>
       </div>
 
@@ -661,8 +706,11 @@ export default function AdminEncomendasAgendaPage() {
                       const isFinished = ord.orderStatus === 'finished';
                       const isReady = ord.orderStatus === 'ready';
                       const isPreparing = ord.orderStatus === 'preparing';
+                      const isCancelled = ord.orderStatus === 'cancelled';
 
-                      const statusDot = isFinished
+                      const statusDot = isCancelled
+                        ? 'bg-rose-500'
+                        : isFinished
                         ? 'bg-emerald-600'
                         : isReady
                         ? 'bg-blue-600'
@@ -674,8 +722,10 @@ export default function AdminEncomendasAgendaPage() {
                         <div
                           key={ord.id}
                           onClick={() => setSelectedOrderDetails(ord)}
-                          className={`p-1.5 rounded-xl border text-[10px] sm:text-[11px] leading-tight cursor-pointer transition-all hover:scale-102 hover:shadow-xs ${
-                            isPartner
+                          className={`p-1.5 rounded-xl border text-[10px] sm:text-[11px] leading-tight cursor-pointer transition-all hover:scale-102 hover:shadow-xs group relative ${
+                            isCancelled
+                              ? 'bg-rose-50/70 border-rose-200 text-rose-950 opacity-75'
+                              : isPartner
                               ? 'bg-amber-50 border-amber-200 text-amber-950'
                               : 'bg-[#FAF7F3] border-[#D5BFA8] text-[#2E1609]'
                           }`}
@@ -683,9 +733,15 @@ export default function AdminEncomendasAgendaPage() {
                           <div className="flex items-center justify-between gap-1 min-w-0">
                             <span className="font-bold text-[#2E1609] truncate flex items-center gap-1 min-w-0 flex-1">
                               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusDot}`} />
-                              <span className="truncate">{ord.customerName}</span>
+                              <span className={`truncate ${isCancelled ? 'line-through text-rose-800' : ''}`}>
+                                {ord.customerName}
+                              </span>
                             </span>
-                            {isPartner && (
+                            {isCancelled ? (
+                              <span className="text-[8px] px-1 py-0.2 rounded-sm bg-rose-200 font-bold text-rose-900 shrink-0">
+                                Cancelada
+                              </span>
+                            ) : isPartner && (
                               <span className="text-[8px] px-1 py-0.2 rounded-sm bg-amber-200/90 font-bold text-amber-900 shrink-0">
                                 Planilha
                               </span>
@@ -697,7 +753,7 @@ export default function AdminEncomendasAgendaPage() {
                           </div>
 
                           {/* Se for 50% de sinal */}
-                          {ord.paymentScheme === 'half_deposit' && (
+                          {ord.paymentScheme === 'half_deposit' && !isCancelled && (
                             <div className="mt-1 flex items-center gap-1 text-[8px] font-bold">
                               <span className={`px-1 py-0.2 rounded ${
                                 ord.depositPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-200 text-amber-900'
@@ -713,8 +769,32 @@ export default function AdminEncomendasAgendaPage() {
                           )}
 
                           <div className="flex items-center justify-between text-[9px] font-semibold text-[#5A3821] mt-1 pt-0.5 border-t border-black/5">
-                            <span>{formatCurrency(ord.totalAmount)}</span>
-                            <span className="opacity-75">{ord.scheduledTime}</span>
+                            <span className={isCancelled ? 'line-through opacity-70' : ''}>{formatCurrency(ord.totalAmount)}</span>
+                            <div className="flex items-center gap-1">
+                              <span className="opacity-75">{ord.scheduledTime}</span>
+                              <button
+                                type="button"
+                                title={isCancelled ? 'Reativar Encomenda' : 'Cancelar Encomenda'}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancelOrder(ord);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 hover:text-amber-600 transition-opacity p-0.5 cursor-pointer"
+                              >
+                                <Ban className="w-3 h-3 text-amber-700" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Excluir Encomenda Definitivamente"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteOrder(ord);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 hover:text-rose-600 transition-opacity p-0.5 cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3 text-rose-600" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -864,15 +944,39 @@ export default function AdminEncomendasAgendaPage() {
 
                           {/* Footer & Actions */}
                           <div className="pt-2 border-t border-[#E8D5C4] flex items-center justify-between text-xs">
-                            <span className="font-serif font-bold text-sm text-[#2E1609]">
-                              {formatCurrency(order.totalAmount)}
-                            </span>
-
                             <div className="flex items-center gap-1.5">
+                              <span className="font-serif font-bold text-sm text-[#2E1609]">
+                                {formatCurrency(order.totalAmount)}
+                              </span>
+                              {order.orderStatus === 'cancelled' && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-rose-100 text-rose-800 font-bold">
+                                  Cancelada
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleCancelOrder(order)}
+                                className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-800 transition-colors cursor-pointer"
+                                title={order.orderStatus === 'cancelled' ? 'Reativar Encomenda' : 'Cancelar Encomenda'}
+                              >
+                                <Ban className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteOrder(order)}
+                                className="p-1.5 rounded-lg hover:bg-rose-100 text-rose-700 transition-colors cursor-pointer"
+                                title="Excluir Encomenda Definitivamente"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+
                               {prevStatus && (
                                 <button
                                   onClick={() => updateOrderStatus(order.id, prevStatus)}
-                                  className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer"
+                                  className="px-2 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer ml-1"
                                   title="Voltar etapa"
                                 >
                                   <ChevronLeft className="w-3 h-3" />
@@ -907,9 +1011,16 @@ export default function AdminEncomendasAgendaPage() {
           <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6 sm:p-7 space-y-5 border border-[#D5BFA8] text-xs">
             <div className="flex items-center justify-between border-b border-[#E8D5C4] pb-3.5">
               <div>
-                <span className="font-mono text-xs font-bold text-[#7A5A43]">
-                  {selectedOrderDetails.orderNumber}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold text-[#7A5A43]">
+                    {selectedOrderDetails.orderNumber}
+                  </span>
+                  {selectedOrderDetails.orderStatus === 'cancelled' && (
+                    <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-bold text-[10px]">
+                      Cancelada
+                    </span>
+                  )}
+                </div>
                 <h3 className="font-serif text-lg sm:text-xl font-bold text-[#2E1609]">
                   {selectedOrderDetails.customerName}
                 </h3>
@@ -921,6 +1032,25 @@ export default function AdminEncomendasAgendaPage() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {selectedOrderDetails.orderStatus === 'cancelled' && (
+              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <div>
+                    <strong className="block font-bold">Esta encomenda está CANCELADA</strong>
+                    <span className="text-[10px] text-rose-700">A data não está mais ocupando capacidade de produção.</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCancelOrder(selectedOrderDetails)}
+                  className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-rose-100 border border-rose-300 text-rose-800 text-[10px] font-bold cursor-pointer transition-colors shrink-0"
+                >
+                  Reativar Encomenda
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 p-3.5 rounded-2xl bg-[#FAF7F3] border border-[#E8D5C4]">
               <div>
@@ -1085,6 +1215,39 @@ export default function AdminEncomendasAgendaPage() {
                     {col.title.split(' ')[0]}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Ações de Cancelamento e Exclusão */}
+            <div className="space-y-2 pt-2 border-t border-[#E8D5C4]">
+              <span className="font-bold text-xs uppercase tracking-wider text-[#6E4F38] block">
+                Ações da Encomenda
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleCancelOrder(selectedOrderDetails)}
+                  className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all cursor-pointer ${
+                    selectedOrderDetails.orderStatus === 'cancelled'
+                      ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-900'
+                      : 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-800'
+                  }`}
+                >
+                  <Ban className="w-4 h-4 shrink-0" />
+                  <span>
+                    {selectedOrderDetails.orderStatus === 'cancelled'
+                      ? 'Reativar Encomenda'
+                      : 'Cancelar Encomenda'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteOrder(selectedOrderDetails)}
+                  className="p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 border border-red-300 text-red-700 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4 shrink-0" />
+                  <span>Excluir Definitivamente</span>
+                </button>
               </div>
             </div>
 
