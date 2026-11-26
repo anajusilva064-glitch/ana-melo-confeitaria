@@ -41,7 +41,6 @@ type StoreContextType = {
   addCustomOption: (opt: Omit<CustomOrderOption, 'id'>) => void;
   updateCustomOption: (id: string, updates: Partial<CustomOrderOption>) => void;
   deleteCustomOption: (id: string) => void;
-  resetCustomOptionsToDefault: () => void;
 
   // Estoque & Insumos
   ingredients: Ingredient[];
@@ -286,13 +285,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteCustomOption = (id: string) => {
     setCustomOptions((prev) => prev.filter((o) => o.id !== id));
-  };
-
-  const resetCustomOptionsToDefault = () => {
-    setCustomOptions(initialCustomOptions);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('ana_melo_custom_options_v6', JSON.stringify(initialCustomOptions));
-    }
   };
 
   // Funções de Insumos & Estoque
@@ -626,7 +618,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addCustomOption,
         updateCustomOption,
         deleteCustomOption,
-        resetCustomOptionsToDefault,
         ingredients,
         addIngredient,
         updateIngredient,
