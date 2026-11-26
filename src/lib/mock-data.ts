@@ -53,9 +53,9 @@ export const initialSettings: StoreSettings = {
 export const initialCategories: Category[] = [
   { id: 'cat-1', name: 'Doces Gourmet de Festa', slug: 'doces-gourmet-festa', sortOrder: 1, isActive: true },
   { id: 'cat-2', name: 'Doces Tradicionais de Festa', slug: 'doces-tradicionais-festa', sortOrder: 2, isActive: true },
-  { id: 'cat-3', name: 'Bolos Sob Encomenda', slug: 'bolos-encomenda', sortOrder: 3, isActive: true },
-  { id: 'cat-4', name: 'Sobremesas e Fatias', slug: 'sobremesas-fatias', sortOrder: 4, isActive: true },
-  { id: 'cat-5', name: 'Caixas de Presente', slug: 'caixas-presente', sortOrder: 5, isActive: true },
+  { id: 'cat-3', name: 'Doces Finos de Festa', slug: 'doces-finos-festa', sortOrder: 3, isActive: true },
+  { id: 'cat-4', name: 'Bolos Sob Encomenda', slug: 'bolos-encomenda', sortOrder: 4, isActive: true },
+  { id: 'cat-5', name: 'Sobremesas e Pronta Entrega', slug: 'sobremesas-pronta-entrega', sortOrder: 5, isActive: true },
 ];
 
 export const initialProducts: Product[] = [
@@ -126,10 +126,25 @@ export const initialProducts: Product[] = [
     prepTimeMinutes: 1440,
   },
 
+  // DOCES FINOS DE FESTA
+  {
+    id: 'prod-cento-finos',
+    categoryId: 'cat-3',
+    name: 'Cento de Doces Finos de Festa (100 unidades)',
+    description: '100 doces finos nobres (Camafeu de Nozes, Tulipa de Morango, Uva Crocante, Ouriço, Caixetas, etc). Escolha até 4 sabores.',
+    price: 280.00,
+    imageUrl: 'https://images.unsplash.com/photo-1582293041079-7814c2f12063?w=800&auto=format&fit=crop&q=80',
+    isAvailable: true,
+    isCustomOrder: true,
+    productType: 'sweets',
+    prepTimeMinutes: 2880,
+    highlightBadge: 'Linha Fina',
+  },
+
   // BOLOS SOB ENCOMENDA
   {
     id: 'prod-bolo-festivo',
-    categoryId: 'cat-3',
+    categoryId: 'cat-4',
     name: 'Bolo Decorado Personalizado (a partir de 1 kg)',
     description: 'Bolo artesanal comemorativo a partir de 1 kg. Recheios Tradicionais (R$ 65/kg) ou Gourmets (R$ 80/kg). Escolha tamanho, massa, recheios e decoração.',
     price: 65.00,
@@ -142,7 +157,7 @@ export const initialProducts: Product[] = [
   },
   {
     id: 'prod-bento',
-    categoryId: 'cat-3',
+    categoryId: 'cat-4',
     name: 'Bento Cake Personalizado',
     description: 'Mini bolo decorado de 400g na caixinha com frase ou desenho à sua escolha.',
     price: 50.00,
@@ -156,7 +171,7 @@ export const initialProducts: Product[] = [
   // SOBREMESAS & CAIXAS
   {
     id: 'prod-fatia',
-    categoryId: 'cat-4',
+    categoryId: 'cat-5',
     name: 'Fatia Suprema Red Velvet',
     description: 'Fatia individual com massa veludo vermelho e recheio tradicional de cream cheese artesanal.',
     price: 22.00,
@@ -167,7 +182,7 @@ export const initialProducts: Product[] = [
   },
   {
     id: 'prod-banoffee',
-    categoryId: 'cat-4',
+    categoryId: 'cat-5',
     name: 'Torta Banoffee no Pote',
     description: 'Massa crocante amanteigada, doce de leite artesanal, bananas selecionadas e cobertura leve com canela.',
     price: 20.00,

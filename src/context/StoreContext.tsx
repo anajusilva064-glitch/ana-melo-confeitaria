@@ -117,7 +117,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       // Limpeza de cache antigo para garantir que os dados reais da Ana Melo Confeitaria sejam aplicados
       ['ana_melo_settings', 'ana_melo_orders', 'ana_melo_products', 'ana_melo_categories',
-       'ana_melo_settings_v3', 'ana_melo_products_v3', 'ana_melo_categories_v3', 'ana_melo_custom_options_v3', 'ana_melo_custom_options_v5'].forEach(k => {
+       'ana_melo_settings_v3', 'ana_melo_products_v3', 'ana_melo_categories_v3', 'ana_melo_custom_options_v3', 'ana_melo_custom_options_v5',
+       'ana_melo_products_v5', 'ana_melo_categories_v5'].forEach(k => {
         try { localStorage.removeItem(k); } catch {}
       });
 
@@ -142,16 +143,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setSettings(initialSettings);
       }
 
-      const savedCategories = localStorage.getItem('ana_melo_categories_v5');
+      const savedCategories = localStorage.getItem('ana_melo_categories_v6');
       if (savedCategories) {
-        setCategories(JSON.parse(savedCategories));
+        const parsed = JSON.parse(savedCategories);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCategories(parsed);
+        } else {
+          setCategories(initialCategories);
+        }
       } else {
         setCategories(initialCategories);
       }
 
-      const savedProducts = localStorage.getItem('ana_melo_products_v5');
+      const savedProducts = localStorage.getItem('ana_melo_products_v6');
       if (savedProducts) {
-        setProducts(JSON.parse(savedProducts));
+        const parsed = JSON.parse(savedProducts);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setProducts(parsed);
+        } else {
+          setProducts(initialProducts);
+        }
       } else {
         setProducts(initialProducts);
       }
@@ -207,12 +218,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_categories_v5', JSON.stringify(categories));
+    localStorage.setItem('ana_melo_categories_v6', JSON.stringify(categories));
   }, [categories, isClient]);
 
   useEffect(() => {
     if (!isClient) return;
-    localStorage.setItem('ana_melo_products_v5', JSON.stringify(products));
+    localStorage.setItem('ana_melo_products_v6', JSON.stringify(products));
   }, [products, isClient]);
 
   useEffect(() => {
