@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import https from 'https';
 import * as XLSX from 'xlsx';
 import { Order } from '@/types';
@@ -16,11 +17,12 @@ function excelSerialToDate(serial: number): string {
 
 function downloadOneDriveBuffer(initialUrl: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    // Garante parâmetro download=1
+    // Garante parâmetro download=1 e cache-busting
     let fetchUrl = initialUrl;
     if (!fetchUrl.includes('download=1')) {
       fetchUrl += (fetchUrl.includes('?') ? '&' : '?') + 'download=1';
     }
+    fetchUrl += `&_t=${Date.now()}`;
 
     const cookieJar: Record<string, string> = {};
 
@@ -144,7 +146,7 @@ function parseWorkbookOrders(buffer: Buffer): Order[] {
             const orderDay = scheduledDate.split('-')[2];
 
             // Define status com base na data (passadas = entregues, futuras = agendadas)
-            const todayStr = '2026-11-17';
+            const todayStr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
             const isPast = scheduledDate < todayStr;
             const isToday = scheduledDate === todayStr;
 
@@ -192,6 +194,9 @@ function parseWorkbookOrders(buffer: Buffer): Order[] {
 
 export async function POST(req: Request) {
   try {
+    // Força execução dinâmica a cada requisição
+    await headers();
+
     let targetUrl = 'https://1drv.ms/x/c/1dcf1d98d91734e3/IQD6LZZ9z3GgRo6JIjmZgIO-Aa5LkiAyDBoEIi_pjRhzpfY?e=nMnlHm';
 
     try {
@@ -204,13 +209,20 @@ export async function POST(req: Request) {
     const buffer = await downloadOneDriveBuffer(targetUrl);
     const orders = parseWorkbookOrders(buffer);
 
-    return NextResponse.json({
-      success: true,
-      count: orders.length,
-      orders,
-      message: `Sincronização concluída com sucesso! ${orders.length} encomendas extraídas diretamente do link do OneDrive.`,
-      syncedAt: new Date().toISOString(),
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        count: orders.length,
+        orders,
+        message: `Sincronização concluída com sucesso! ${orders.length} encomendas extraídas diretamente do link do OneDrive.`,
+        syncedAt: new Date().toISOString(),
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
+    );
   } catch (error: any) {
     console.error('Erro na sincronização automática do OneDrive:', error);
     return NextResponse.json(
@@ -218,7 +230,12 @@ export async function POST(req: Request) {
         success: false,
         error: error.message || 'Falha ao sincronizar com o link do OneDrive.',
       },
-      { status: 500 }
+      {
+        status: 500,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        },
+      }
     );
   }
 }

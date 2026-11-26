@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import {
   Category,
   Product,
@@ -57,6 +57,8 @@ type StoreContextType = {
   markOrderDepositPaid: (id: string, depositPaid: boolean) => void;
   markOrderRemainingPaid: (id: string, remainingPaid: boolean) => void;
   syncPartnerSpreadsheet: () => Promise<{ success: boolean; count: number; message: string }>;
+  isSyncingPartnerSpreadsheet: boolean;
+  lastSpreadsheetSync: Date | null;
 
   // Prazos e Bloqueios de Calendário
   addBlockedDate: (date: string, reason?: string) => void;
@@ -103,6 +105,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const [customizingProduct, setCustomizingProduct] = useState<Product | null>(null);
+
+  // Sincronização Automática da Planilha Parceiro (OneDrive)
+  const [deletedOrderIds, setDeletedOrderIds] = useState<string[]>([]);
+  const [isSyncingPartnerSpreadsheet, setIsSyncingPartnerSpreadsheet] = useState<boolean>(false);
+  const [lastSpreadsheetSync, setLastSpreadsheetSync] = useState<Date | null>(null);
+  const isSyncingRef = useRef<boolean>(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -178,6 +186,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const savedCart = localStorage.getItem('ana_melo_cart');
       if (savedCart) setCart(JSON.parse(savedCart));
+
+      const savedDeleted = localStorage.getItem('ana_melo_deleted_order_ids_v1');
+      if (savedDeleted) setDeletedOrderIds(JSON.parse(savedDeleted));
     } catch (e) {
       console.warn('Erro ao carregar localStorage:', e);
     }
@@ -372,6 +383,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteOrder = (id: string) => {
     setOrders((prev) => prev.filter((o) => o.id !== id));
+    setDeletedOrderIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev, id];
+      try {
+        localStorage.setItem('ana_melo_deleted_order_ids_v1', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
   };
 
   const markOrderDepositPaid = (id: string, depositPaid: boolean) => {
@@ -422,6 +441,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const syncPartnerSpreadsheet = async (): Promise<{ success: boolean; count: number; message: string }> => {
+    if (isSyncingRef.current) {
+      return { success: true, count: 0, message: 'Sincronização em andamento...' };
+    }
+    isSyncingRef.current = true;
+    setIsSyncingPartnerSpreadsheet(true);
+
     try {
       const res = await fetch('/api/partner/sync-onedrive', {
         method: 'POST',
@@ -434,36 +459,96 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const liveOrders: Order[] = data.orders;
         const liveIds = new Set(liveOrders.map((o) => o.id));
 
+        // Ler lista de deletados do localStorage para sincronia confiável
+        let currentDeleted = deletedOrderIds;
+        try {
+          const s = localStorage.getItem('ana_melo_deleted_order_ids_v1');
+          if (s) currentDeleted = JSON.parse(s);
+        } catch {}
+        const deletedSet = new Set(currentDeleted);
+
         setOrders((prev) => {
+          // Filtrar os pedidos que o usuário excluiu definitivamente
+          const activeLive = liveOrders.filter((o) => !deletedSet.has(o.id));
+
+          // Preservar alterações manuais do usuário em pedidos existentes (ex: cancelamento, pagamento de sinal, status)
+          const mergedLive = activeLive.map((liveOrd) => {
+            const existing = prev.find((p) => p.id === liveOrd.id);
+            if (existing) {
+              return {
+                ...liveOrd,
+                orderStatus: existing.orderStatus,
+                depositPaid: existing.depositPaid,
+                remainingPaid: existing.remainingPaid,
+                paymentStatus: existing.paymentStatus,
+                notes: existing.notes || liveOrd.notes,
+              };
+            }
+            return liveOrd;
+          });
+
+          // Manter pedidos de outras fontes (loja online oficial e manuais)
           const nonPartnerOrders = prev.filter((o) => !liveIds.has(o.id) && o.source !== 'partner_excel');
-          return [...liveOrders, ...nonPartnerOrders];
+          return [...mergedLive, ...nonPartnerOrders];
         });
+
+        setLastSpreadsheetSync(new Date());
 
         return {
           success: true,
           count: liveOrders.length,
-          message: `${liveOrders.length} encomendas sincronizadas diretamente do link do OneDrive!`,
+          message: `${liveOrders.length} encomendas sincronizadas diretamente da planilha do OneDrive!`,
         };
       }
     } catch (e) {
       console.warn('Erro ao chamar API do OneDrive:', e);
+    } finally {
+      isSyncingRef.current = false;
+      setIsSyncingPartnerSpreadsheet(false);
     }
 
-    // Fallback com as encomendas iniciais caso o OneDrive oscile
-    const partnerOrders = initialOrders.filter((o) => o.source === 'partner_excel');
-    const partnerIds = new Set(partnerOrders.map((o) => o.id));
-
-    setOrders((prev) => {
-      const nonPartnerOrders = prev.filter((o) => !partnerIds.has(o.id) && o.source !== 'partner_excel');
-      return [...partnerOrders, ...nonPartnerOrders];
-    });
-
     return {
-      success: true,
-      count: partnerOrders.length,
-      message: `${partnerOrders.length} encomendas sincronizadas com o calendário!`,
+      success: false,
+      count: 0,
+      message: 'Não foi possível sincronizar com o OneDrive no momento.',
     };
   };
+
+  // Auto-sync automático em segundo plano com a planilha do parceiro (OneDrive)
+  useEffect(() => {
+    if (!isClient) return;
+
+    // Dispara auto-sync imediato 500ms após o carregamento inicial
+    const initialTimer = setTimeout(() => {
+      syncPartnerSpreadsheet();
+    }, 500);
+
+    // Polling a cada 45 segundos para manter o calendário sempre sincronizado
+    const interval = setInterval(() => {
+      syncPartnerSpreadsheet();
+    }, 45000);
+
+    // Sincroniza imediatamente sempre que a aba voltar a ter foco (ex: o usuário estava editando a planilha no Excel e voltou pro sistema)
+    const handleFocus = () => {
+      syncPartnerSpreadsheet();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        syncPartnerSpreadsheet();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isClient, settings.partnerSpreadsheetUrl]);
 
   // Funções de Transações Financeiras
   const addTransaction = (tx: Omit<FinancialTransaction, 'id'>) => {
@@ -540,6 +625,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         markOrderDepositPaid,
         markOrderRemainingPaid,
         syncPartnerSpreadsheet,
+        isSyncingPartnerSpreadsheet,
+        lastSpreadsheetSync,
         addBlockedDate,
         removeBlockedDate,
         transactions,

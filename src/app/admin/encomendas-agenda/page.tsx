@@ -66,6 +66,8 @@ export default function AdminEncomendasAgendaPage() {
     deleteOrder,
     addOrder,
     syncPartnerSpreadsheet,
+    isSyncingPartnerSpreadsheet,
+    lastSpreadsheetSync,
     settings,
     markOrderDepositPaid,
     markOrderRemainingPaid,
@@ -73,6 +75,11 @@ export default function AdminEncomendasAgendaPage() {
     removeBlockedDate,
     updateSettings,
   } = useStore();
+
+  // Garante auto-sync ao carregar a tela da agenda
+  React.useEffect(() => {
+    syncPartnerSpreadsheet();
+  }, []);
 
   // Estados de Visualização
   const [viewMode, setViewMode] = useState<'calendar' | 'kanban'>('calendar');
@@ -427,15 +434,42 @@ export default function AdminEncomendasAgendaPage() {
             </button>
           </div>
 
-          {/* Sync Partner Spreadsheet */}
+          {/* Status Auto-Sync OneDrive */}
+          <div
+            className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 text-xs font-semibold transition-all ${
+              isSyncing || isSyncingPartnerSpreadsheet
+                ? 'bg-amber-50 border-amber-300 text-amber-900'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            }`}
+            title="Sincronização automática ativa: atualiza sozinho a cada 45s e ao alternar entre abas"
+          >
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${
+                isSyncing || isSyncingPartnerSpreadsheet
+                  ? 'bg-amber-500 animate-ping'
+                  : 'bg-emerald-500 shadow-xs'
+              }`}
+            />
+            <span>
+              {isSyncing || isSyncingPartnerSpreadsheet
+                ? 'Sincronizando OneDrive...'
+                : `Auto-Sync Ativo (${partnerOrdersCount} da Planilha)`}
+            </span>
+          </div>
+
+          {/* Sync Partner Spreadsheet Button */}
           <button
             onClick={handleSyncPartner}
-            disabled={isSyncing}
-            className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-[#7A4B1A] border border-amber-300 font-semibold text-xs flex items-center gap-2 transition-all cursor-pointer"
-            title="Sincronizar dados da planilha Excel do parceiro"
+            disabled={isSyncing || isSyncingPartnerSpreadsheet}
+            className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-[#7A4B1A] border border-amber-300 font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            title="Forçar atualização imediata a partir do link do OneDrive"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>Sincronizar Planilha ({partnerOrdersCount})</span>
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${
+                isSyncing || isSyncingPartnerSpreadsheet ? 'animate-spin' : ''
+              }`}
+            />
+            <span>Atualizar Agora</span>
           </button>
 
           {/* Open OneDrive Link */}
