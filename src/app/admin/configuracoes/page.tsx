@@ -38,7 +38,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Copy,
 } from 'lucide-react';
+import QRCode from 'qrcode';
+import { generatePixPayload, validatePixKey, formatPixKey } from '@/lib/pix';
 
 export default function AdminConfiguracoesPage() {
   const { settings, updateSettings, addBlockedDate, removeBlockedDate } = useStore();
@@ -257,6 +260,38 @@ export default function AdminConfiguracoesPage() {
     setFormData(settings);
   }, [settings]);
 
+  // Estados para Testador e Validação do Pix e Cartão
+  const [showPixTester, setShowPixTester] = useState(false);
+  const [testPixAmount, setTestPixAmount] = useState('10.00');
+  const [testPixQrUrl, setTestPixQrUrl] = useState('');
+  const [testPixPayload, setTestPixPayload] = useState('');
+  const [copiedTestPix, setCopiedTestPix] = useState(false);
+  const [copiedFormattedKey, setCopiedFormattedKey] = useState(false);
+  const [showCardGuide, setShowCardGuide] = useState(false);
+
+  const pixKeyValidation = validatePixKey(formData.pixKey, formData.pixKeyType);
+
+  useEffect(() => {
+    if (!showPixTester) return;
+    const amount = parseFloat(testPixAmount) || 10.00;
+    const payload = generatePixPayload({
+      pixKey: formData.pixKey,
+      keyType: formData.pixKeyType,
+      merchantName: formData.pixReceiverName || 'Ana Melo',
+      merchantCity: formData.pixCity || 'UMUARAMA',
+      amount,
+      txId: '***',
+    });
+    setTestPixPayload(payload);
+    QRCode.toDataURL(payload, {
+      width: 260,
+      margin: 1,
+      color: { dark: '#2E1609', light: '#FFFFFF' },
+    })
+      .then(setTestPixQrUrl)
+      .catch((err) => console.warn('Erro ao gerar QR Code de teste:', err));
+  }, [showPixTester, formData.pixKey, formData.pixKeyType, formData.pixReceiverName, formData.pixCity, testPixAmount]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings(formData);
@@ -400,11 +435,21 @@ export default function AdminConfiguracoesPage() {
           </div>
 
           {/* Pix Oficial */}
-          <div className="space-y-3">
-            <span className="text-xs font-bold text-[#2E1609] flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Pagamento via Pix (QR Code Automático + Copia e Cola)
-            </span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#2E1609] flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Pagamento via Pix Oficial (QR Code Automático + Copia e Cola)
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowPixTester(!showPixTester)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF7F3] border border-[#D5BFA8] text-xs font-semibold text-[#2E1609] hover:bg-[#EFE4D8] transition-colors cursor-pointer"
+              >
+                <QrCode className="w-3.5 h-3.5 text-[#C69255]" />
+                <span>{showPixTester ? 'Ocultar Testador' : 'Testar QR Code & Copia e Cola'}</span>
+              </button>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
               <div>
@@ -414,11 +459,11 @@ export default function AdminConfiguracoesPage() {
                   onChange={(e) => setFormData({ ...formData, pixKeyType: e.target.value as any })}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] bg-white text-xs"
                 >
-                  <option value="phone">Telefone</option>
+                  <option value="phone">Telefone Celular</option>
                   <option value="cpf">CPF</option>
                   <option value="cnpj">CNPJ</option>
                   <option value="email">E-mail</option>
-                  <option value="random">Chave Aleatória</option>
+                  <option value="random">Chave Aleatória (EVP)</option>
                 </select>
               </div>
 
@@ -428,6 +473,7 @@ export default function AdminConfiguracoesPage() {
                   type="text"
                   value={formData.pixKey}
                   onChange={(e) => setFormData({ ...formData, pixKey: e.target.value })}
+                  placeholder={formData.pixKeyType === 'phone' ? '44 99973-9472' : 'Sua chave'}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs font-mono focus:outline-hidden focus:border-[#2E1609]"
                 />
               </div>
@@ -438,6 +484,7 @@ export default function AdminConfiguracoesPage() {
                   type="text"
                   value={formData.pixReceiverName}
                   onChange={(e) => setFormData({ ...formData, pixReceiverName: e.target.value })}
+                  placeholder="Ana Melo"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
                 />
               </div>
@@ -453,18 +500,136 @@ export default function AdminConfiguracoesPage() {
                 />
               </div>
             </div>
-            <p className="text-[11px] text-[#7A5A43]">
-              O sistema gera automaticamente o QR Code padrão Banco Central (EMVCo) e o código Pix Copia e Cola com o valor exato da encomenda.
-            </p>
+
+            {/* Validação de Chave em Tempo Real */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] text-[11px]">
+              <div className="flex items-center gap-2">
+                {pixKeyValidation.isValid ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                )}
+                <div>
+                  <span className={pixKeyValidation.isValid ? 'font-semibold text-emerald-900' : 'font-semibold text-amber-900'}>
+                    {pixKeyValidation.message}
+                  </span>
+                  {pixKeyValidation.isValid && (
+                    <span className="block text-[10px] text-[#7A5A43]">
+                      Formatado para o Banco Central (EMVCo): <strong className="font-mono text-[#2E1609]">{pixKeyValidation.formattedKey}</strong>
+                    </span>
+                  )}
+                </div>
+              </div>
+              {pixKeyValidation.isValid && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(pixKeyValidation.formattedKey);
+                    setCopiedFormattedKey(true);
+                    setTimeout(() => setCopiedFormattedKey(false), 2000);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-[#D5BFA8] text-[10px] font-medium text-[#2E1609] hover:bg-[#F2E8DF] transition-colors flex items-center gap-1"
+                >
+                  {copiedFormattedKey ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-[#C69255]" />}
+                  <span>{copiedFormattedKey ? 'Copiada!' : 'Copiar Chave Padrão BCB'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* TESTADOR INTERATIVO DE QR CODE PIX */}
+            {showPixTester && (
+              <div className="p-4 rounded-2xl bg-white border-2 border-[#C69255] shadow-sm space-y-4 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between border-b border-[#F2E8DF] pb-2">
+                  <div className="flex items-center gap-2">
+                    <QrCode className="w-4 h-4 text-[#C69255]" />
+                    <span className="font-bold text-xs text-[#2E1609]">
+                      Simulador em Tempo Real: Teste seu Pix no Aplicativo do Banco
+                    </span>
+                  </div>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                    EMVCo Padrão Bacen
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                  <div className="md:col-span-5 flex flex-col items-center justify-center p-3 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4]">
+                    {testPixQrUrl ? (
+                      <img
+                        src={testPixQrUrl}
+                        alt="QR Code Pix Teste"
+                        className="w-48 h-48 rounded-lg bg-white p-2 border border-[#E8D5C4] object-contain shadow-2xs"
+                      />
+                    ) : (
+                      <div className="w-48 h-48 flex items-center justify-center text-xs text-[#7A5A43]">
+                        Gerando QR Code...
+                      </div>
+                    )}
+                    <span className="text-[10px] text-center text-[#7A5A43] mt-2 font-medium">
+                      Abra o app do seu banco (Nubank, Inter, Itaú, etc.) e aponte a câmera para confirmar que aparece: <strong>{formData.pixReceiverName || 'Ana Melo'}</strong>
+                    </span>
+                  </div>
+
+                  <div className="md:col-span-7 space-y-3 text-xs">
+                    <div>
+                      <label className="block font-semibold text-[#7A5A43] mb-1">
+                        Valor de Teste para Simulação (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={testPixAmount}
+                        onChange={(e) => setTestPixAmount(e.target.value)}
+                        className="w-32 px-3 py-1.5 rounded-xl border border-[#D5BFA8] font-bold text-center text-sm"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block font-semibold text-[#7A5A43]">
+                        Pix Copia e Cola Gerado (com valor exato):
+                      </label>
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          readOnly
+                          value={testPixPayload}
+                          className="w-full px-3 py-2 rounded-xl bg-[#FAF7F3] border border-[#D5BFA8] font-mono text-[11px] text-[#2E1609] select-all truncate"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(testPixPayload);
+                            setCopiedTestPix(true);
+                            setTimeout(() => setCopiedTestPix(false), 2500);
+                          }}
+                          className="px-3.5 py-2 rounded-xl bg-[#2E1609] hover:bg-[#1F1108] text-white font-medium text-xs flex items-center gap-1.5 shrink-0 transition-colors"
+                        >
+                          {copiedTestPix ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copiedTestPix ? 'Copiado!' : 'Copiar'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 leading-relaxed">
+                      ✓ <strong>Como funciona na prática:</strong> Quando o cliente finaliza o pedido na sacola da loja, o sistema calcula o valor (total ou sinal de 50%) e monta esse QR Code e o Copia e Cola automaticamente na tela dele e na mensagem enviada para o WhatsApp.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Cartão de Crédito / Link Direto */}
           <div className="pt-4 border-t border-[#F2E8DF] space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#2E1609] flex items-center gap-1.5">
-                <CreditCard className="w-4 h-4 text-[#C69255]" />
-                Pagamento no Cartão (Link de Pagamento Direto)
-              </span>
+              <div>
+                <span className="text-xs font-bold text-[#2E1609] flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-[#C69255]" />
+                  Pagamento no Cartão (Link de Pagamento Direto)
+                </span>
+                <span className="text-[11px] text-[#7A5A43] block mt-0.5">
+                  Permite aos clientes pagarem e parcelarem compras no cartão via link oficial do seu provedor.
+                </span>
+              </div>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input
                   type="checkbox"
@@ -476,20 +641,80 @@ export default function AdminConfiguracoesPage() {
               </label>
             </div>
 
-            <div className="text-xs space-y-1">
-              <label className="block font-semibold text-[#7A5A43]">
-                Link de Checkout de Cartão (Mercado Pago / InfinitePay / Stone / PagBank)
-              </label>
-              <input
-                type="url"
-                placeholder="https://link.mercadopago.com.br/anameloconfeitaria"
-                value={formData.cardPaymentLink || ''}
-                onChange={(e) => setFormData({ ...formData, cardPaymentLink: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs font-mono focus:outline-hidden focus:border-[#2E1609]"
-              />
-              <p className="text-[11px] text-[#7A5A43]">
-                Ao selecionar "Cartão", o cliente é redirecionado diretamente para este link oficial para parcelar ou pagar no débito/crédito.
-              </p>
+            <div className="text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block font-semibold text-[#7A5A43]">
+                  Link de Checkout de Cartão (Mercado Pago / InfinitePay / Stone Ton / PagBank)
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowCardGuide(!showCardGuide)}
+                  className="text-[11px] text-[#C69255] hover:underline font-semibold flex items-center gap-1"
+                >
+                  <span>{showCardGuide ? 'Ocultar Tutorial' : 'Como pegar meu link?'}</span>
+                  {showCardGuide ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="https://link.mercadopago.com.br/anameloconfeitaria"
+                  value={formData.cardPaymentLink || ''}
+                  onChange={(e) => setFormData({ ...formData, cardPaymentLink: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs font-mono focus:outline-hidden focus:border-[#2E1609]"
+                />
+                {formData.cardPaymentLink && (
+                  <a
+                    href={formData.cardPaymentLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-4 py-2.5 bg-[#FAF7F3] hover:bg-[#EFE4D8] border border-[#D5BFA8] text-[#2E1609] font-medium text-xs rounded-xl flex items-center gap-1.5 shrink-0 transition-colors"
+                  >
+                    <span>Testar Link</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-[#C69255]" />
+                  </a>
+                )}
+              </div>
+
+              {/* GUIA PASSO A PASSO PARA GERAR O LINK */}
+              {showCardGuide && (
+                <div className="p-4 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] space-y-3 text-[11px] text-[#5A3821] animate-in fade-in duration-150">
+                  <div className="font-bold text-xs text-[#2E1609] flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-[#C69255]" />
+                    <span>Passo a Passo: Como pegar o link de pagamento na sua maquininha/banco:</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="p-2.5 rounded-lg bg-white border border-[#E8D5C4] space-y-1">
+                      <strong className="text-[#2E1609] block">1. Mercado Pago</strong>
+                      <p className="text-[10px] leading-relaxed">
+                        Abra o app Mercado Pago &gt; Toque em <strong>Cobrar</strong> &gt; Selecione <strong>Link de pagamento</strong> &gt; Crie seu link fixo do ateliê e copie o endereço.
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-white border border-[#E8D5C4] space-y-1">
+                      <strong className="text-[#2E1609] block">2. InfinitePay</strong>
+                      <p className="text-[10px] leading-relaxed">
+                        Abra o app InfinitePay &gt; Toque em <strong>Vender</strong> &gt; Selecione <strong>InfiniteLink</strong> &gt; Copie o link e cole acima.
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-white border border-[#E8D5C4] space-y-1">
+                      <strong className="text-[#2E1609] block">3. Stone / Ton</strong>
+                      <p className="text-[10px] leading-relaxed">
+                        Abra o app Ton &gt; Vá em <strong>Vender</strong> &gt; Toque em <strong>Link de Pagamento</strong> &gt; Copie o link gerado.
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-white border border-[#E8D5C4] space-y-1">
+                      <strong className="text-[#2E1609] block">4. PagBank / PagSeguro</strong>
+                      <p className="text-[10px] leading-relaxed">
+                        Abra o app PagBank &gt; Toque em <strong>Vendas</strong> &gt; <strong>Link de Pagamento</strong> &gt; Copie o link para colar aqui.
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[#7A5A43] pt-1">
+                    * Ao ativar o Cartão e colar o link, o cliente poderá escolher entre Pix ou Cartão na sacola. Clicando no cartão, o checkout seguro abre diretamente.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

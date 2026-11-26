@@ -133,6 +133,7 @@ export default function CartDrawer() {
   } | null>(null);
 
   const [copiedPix, setCopiedPix] = useState(false);
+  const [copiedRawKey, setCopiedRawKey] = useState(false);
 
   if (!isCartOpen) return null;
 
@@ -140,6 +141,12 @@ export default function CartDrawer() {
     navigator.clipboard.writeText(textToCopy);
     setCopiedPix(true);
     setTimeout(() => setCopiedPix(false), 2500);
+  };
+
+  const handleCopyRawKey = (keyToCopy: string) => {
+    navigator.clipboard.writeText(keyToCopy);
+    setCopiedRawKey(true);
+    setTimeout(() => setCopiedRawKey(false), 2500);
   };
 
   const handleCheckout = async () => {
@@ -188,10 +195,11 @@ export default function CartDrawer() {
       if (paymentMethod === 'pix') {
         pixPayload = generatePixPayload({
           pixKey: settings.pixKey,
+          keyType: settings.pixKeyType,
           merchantName: settings.pixReceiverName || 'Ana Melo',
           merchantCity: settings.pixCity || 'UMUARAMA',
           amount: amountToPayNow,
-          txId: tempOrderNum.replace('-', ''),
+          txId: '***',
         });
 
         try {
@@ -426,27 +434,45 @@ export default function CartDrawer() {
                   </div>
                 )}
 
-                <div className="space-y-1.5 text-left">
-                  <label className="text-[10px] font-semibold text-[#7A5A43] uppercase tracking-wider block">
-                    Pix Copia e Cola
-                  </label>
-                  <div className="flex gap-1.5">
-                    <input
-                      type="text"
-                      readOnly
-                      value={completedOrder.pixPayload || settings.pixKey}
-                      className="w-full px-3 py-2 rounded-xl bg-[#FAF7F3] border border-[#D5BFA8] text-[11px] font-mono text-[#2E1609] select-all truncate"
-                    />
+                <div className="space-y-3 text-left">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-semibold text-[#7A5A43] uppercase tracking-wider block">
+                      Pix Copia e Cola (Valor Automático de {formatCurrency(completedOrder.amountToPayNow)})
+                    </label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        readOnly
+                        value={completedOrder.pixPayload || settings.pixKey}
+                        className="w-full px-3 py-2 rounded-xl bg-[#FAF7F3] border border-[#D5BFA8] text-[11px] font-mono text-[#2E1609] select-all truncate"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPix(completedOrder.pixPayload || settings.pixKey)}
+                        className="px-4 py-2 bg-[#2E1609] hover:bg-[#1F1108] text-white rounded-xl font-medium text-xs flex items-center gap-1.5 shrink-0 transition-colors"
+                      >
+                        {copiedPix ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedPix ? 'Copiado!' : 'Copiar'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#FAF7F3] border border-[#E8D5C4] flex items-center justify-between gap-2">
+                    <div className="text-[11px] text-[#7A5A43]">
+                      <span className="block font-semibold text-[#2E1609]">Ou pague pela Chave Direta:</span>
+                      <span className="font-mono text-[10px] text-[#6E4F38]">{settings.pixKey} ({settings.pixKeyType === 'phone' ? 'Telefone' : settings.pixKeyType.toUpperCase()})</span>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => handleCopyPix(completedOrder.pixPayload || settings.pixKey)}
-                      className="px-4 py-2 bg-[#2E1609] hover:bg-[#1F1108] text-white rounded-xl font-medium text-xs flex items-center gap-1.5 shrink-0 transition-colors"
+                      onClick={() => handleCopyRawKey(settings.pixKey)}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-[#D5BFA8] text-[#2E1609] hover:bg-[#F2E8DF] text-[11px] font-medium flex items-center gap-1 transition-colors"
                     >
-                      {copiedPix ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedPix ? 'Copiado!' : 'Copiar'}</span>
+                      {copiedRawKey ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-[#C69255]" />}
+                      <span>{copiedRawKey ? 'Copiada!' : 'Copiar Chave'}</span>
                     </button>
                   </div>
-                  <p className="text-[10px] text-[#7A5A43] pt-1">
+
+                  <p className="text-[10px] text-[#7A5A43]">
                     Titular: <strong>{settings.pixReceiverName}</strong> • Umuarama - PR
                   </p>
                 </div>
