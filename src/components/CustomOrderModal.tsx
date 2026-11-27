@@ -3,7 +3,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useStore } from '@/context/StoreContext';
 import { formatCurrency } from '@/lib/utils';
-import { X, Check, ShoppingBag, Plus, Minus } from 'lucide-react';
+import { X, Check, ShoppingBag, Plus, Minus, Sparkles, Filter } from 'lucide-react';
+import { CustomOrderOption } from '@/types';
 
 export default function CustomOrderModal() {
   const {
@@ -28,10 +29,11 @@ export default function CustomOrderModal() {
   const [cakeMessage, setCakeMessage] = useState<string>('');
 
   // Estado para Doces de Festa
-  const [sweetPackageSize, setSweetPackageSize] = useState<string>('100 unidades (Cento)');
+  const [targetSweetUnits, setTargetSweetUnits] = useState<number>(100);
   const [selectedSweetFlavors, setSelectedSweetFlavors] = useState<{ name: string; qty: number; extraPrice: number }[]>([]);
   const [selectedWrapperId, setSelectedWrapperId] = useState<string>('');
   const [sweetNotes, setSweetNotes] = useState<string>('');
+  const [activeSweetTab, setActiveSweetTab] = useState<'all' | 'gourmet' | 'traditional' | 'fine'>('all');
 
   // Opções de Bolo
   const cakeSizes = useMemo(() => customOptions.filter((o) => o.type === 'size' && o.isAvailable), [customOptions]);
@@ -46,7 +48,7 @@ export default function CustomOrderModal() {
   const fineSweets = useMemo(() => customOptions.filter((o) => o.type === 'sweet_fine' && o.isAvailable), [customOptions]);
   const wrappers = useMemo(() => customOptions.filter((o) => o.type === 'wrapper' && o.isAvailable), [customOptions]);
 
-  // Inicialização
+  // Inicialização ao abrir modal
   useEffect(() => {
     if (isCustomModalOpen) {
       if (cakeSizes.length > 0 && !selectedSizeId) setSelectedSizeId(cakeSizes[0].id);
@@ -55,14 +57,24 @@ export default function CustomOrderModal() {
       if (fillings.length > 0 && selectedFillingIds.length === 0) setSelectedFillingIds([fillings[0].id]);
       if (wrappers.length > 0 && !selectedWrapperId) setSelectedWrapperId(wrappers[0].id);
 
-      // Pré-selecionar tamanho de doces baseado no produto
+      // Pré-selecionar quantidade inicial baseada no produto
       if (customizingProduct) {
         if (customizingProduct.name.includes('50') || customizingProduct.name.includes('Meio')) {
-          setSweetPackageSize('50 unidades (Meio Cento)');
+          setTargetSweetUnits(50);
         } else if (customizingProduct.name.includes('25')) {
-          setSweetPackageSize('25 unidades');
+          setTargetSweetUnits(25);
         } else {
-          setSweetPackageSize('100 unidades (Cento)');
+          setTargetSweetUnits(100);
+        }
+        setSelectedSweetFlavors([]);
+
+        // Se o produto for especificamente de doces finos ou tradicionais, ajusta aba inicial
+        if (customizingProduct.name.toLowerCase().includes('fino')) {
+          setActiveSweetTab('fine');
+        } else if (customizingProduct.name.toLowerCase().includes('tradicional')) {
+          setActiveSweetTab('traditional');
+        } else {
+          setActiveSweetTab('all');
         }
       }
     }
@@ -70,29 +82,27 @@ export default function CustomOrderModal() {
 
   if (!isCustomModalOpen || !customizingProduct) return null;
 
-  // Total de unidades de doces permitidas
-  const targetSweetUnits = sweetPackageSize.includes('25') ? 25 : sweetPackageSize.includes('50') ? 50 : 100;
+  // Total de unidades de doces selecionadas no momento
   const currentTotalSweetUnits = selectedSweetFlavors.reduce((sum, item) => sum + item.qty, 0);
 
-  // Toggle de Sabor de Doce (adiciona ou remove em lotes de 25 unidades)
-  const handleToggleSweetFlavor = (flavorName: string, extraPrice: number) => {
-    const existing = selectedSweetFlavors.find((f) => f.name === flavorName);
-    if (existing) {
-      setSelectedSweetFlavors(selectedSweetFlavors.filter((f) => f.name !== flavorName));
-    } else {
-      if (currentTotalSweetUnits + 25 <= targetSweetUnits) {
-        setSelectedSweetFlavors([...selectedSweetFlavors, { name: flavorName, qty: 25, extraPrice }]);
-      } else {
-        alert(`O limite deste pacote é de ${targetSweetUnits} unidades (25 de cada sabor). Remova um sabor antes de adicionar outro.`);
-      }
-    }
-  };
+  // Determinar preço unitário por doce baseado no produto clicado
+  const baseUnitCount = customizingProduct.name.includes('50') || customizingProduct.name.includes('Meio')
+    ? 50
+    : customizingProduct.name.includes('25')
+    ? 25
+    : 100;
 
-  // Cálculo de Preço
-  const basePrice = customizingProduct.price;
+  const unitSweetPrice = customizingProduct.price / baseUnitCount;
+  const effectiveSweetUnits = Math.max(targetSweetUnits, currentTotalSweetUnits);
+  const baseSweetPrice = effectiveSweetUnits * unitSweetPrice;
+
   const wrapperOption = wrappers.find((w) => w.id === selectedWrapperId);
-  const sweetExtrasPrice = selectedSweetFlavors.reduce((sum, f) => sum + f.extraPrice, 0) + (wrapperOption?.extraPrice || 0);
+  const wrapperExtra = wrapperOption ? wrapperOption.extraPrice * Math.max(1, Math.round(effectiveSweetUnits / 100)) : 0;
+  const sweetExtrasPrice = selectedSweetFlavors.reduce((sum, f) => sum + ((f.extraPrice || 0) * f.qty), 0) + wrapperExtra;
+  const sweetTotalPrice = baseSweetPrice + sweetExtrasPrice;
 
+  // Preço para Bolos
+  const basePrice = customizingProduct.price;
   const sizeOption = cakeSizes.find((s) => s.id === selectedSizeId);
   const doughOption = doughs.find((d) => d.id === selectedDoughId);
   const toppingOption = toppings.find((t) => t.id === selectedToppingId);
@@ -113,8 +123,40 @@ export default function CustomOrderModal() {
     cakeFillingsExtra +
     cakeExtrasPrice;
 
-  const sweetTotalPrice = basePrice + sweetExtrasPrice;
   const finalPrice = isSweetOrder ? sweetTotalPrice : cakeTotalPrice;
+
+  // Ações de Atualização de Quantidade de Doces (de 5 em 5 unidades)
+  const handleUpdateSweetQty = (flavorName: string, delta: number, extraPrice = 0) => {
+    const existing = selectedSweetFlavors.find((f) => f.name === flavorName);
+
+    if (!existing && delta > 0) {
+      const newTotal = currentTotalSweetUnits + delta;
+      if (newTotal > targetSweetUnits) {
+        setTargetSweetUnits(newTotal);
+      }
+      setSelectedSweetFlavors([...selectedSweetFlavors, { name: flavorName, qty: delta, extraPrice }]);
+      return;
+    }
+
+    if (existing) {
+      const newQty = existing.qty + delta;
+      if (newQty <= 0) {
+        setSelectedSweetFlavors(selectedSweetFlavors.filter((f) => f.name !== flavorName));
+      } else {
+        const newTotal = currentTotalSweetUnits + delta;
+        if (newTotal > targetSweetUnits) {
+          setTargetSweetUnits(newTotal);
+        }
+        setSelectedSweetFlavors(
+          selectedSweetFlavors.map((f) => (f.name === flavorName ? { ...f, qty: newQty } : f))
+        );
+      }
+    }
+  };
+
+  const handleRemoveSweetFlavor = (flavorName: string) => {
+    setSelectedSweetFlavors(selectedSweetFlavors.filter((f) => f.name !== flavorName));
+  };
 
   // Ações de Bolo
   const toggleFilling = (id: string) => {
@@ -138,14 +180,27 @@ export default function CustomOrderModal() {
         return;
       }
 
+      const totalChosen = currentTotalSweetUnits;
+      if (totalChosen < targetSweetUnits) {
+        const diff = targetSweetUnits - totalChosen;
+        const confirmAdjust = confirm(
+          `Você selecionou ${totalChosen} doces de um pacote previsto de ${targetSweetUnits} (faltam ${diff} doces).\n\nDeseja confirmar a encomenda com exatamente ${totalChosen} doces no valor de ${formatCurrency(sweetTotalPrice)}?`
+        );
+        if (!confirmAdjust) return;
+        setTargetSweetUnits(totalChosen);
+      }
+
+      const finalCount = Math.max(targetSweetUnits, currentTotalSweetUnits);
+      const cleanBaseName = customizingProduct.name.split('(')[0].trim();
+
       addToCart({
         productId: customizingProduct.id,
-        productName: customizingProduct.name,
+        productName: `${cleanBaseName} (${finalCount} unidades)`,
         quantity: 1,
         unitPrice: sweetTotalPrice,
         totalPrice: sweetTotalPrice,
         customDetails: {
-          sweetPackageSize,
+          sweetPackageSize: `${finalCount} unidades`,
           selectedFlavors: selectedSweetFlavors.map((f) => `${f.qty}x ${f.name}`),
           wrapperType: wrapperOption?.name,
           extras: sweetNotes.trim() ? [sweetNotes.trim()] : undefined,
@@ -180,14 +235,127 @@ export default function CustomOrderModal() {
     setIsCustomModalOpen(false);
   };
 
+  // Card de Seleção de Sabor de Doce com Stepper de 5 em 5 unidades
+  const renderSweetFlavorCard = (flavor: CustomOrderOption, badgeLabel: string) => {
+    const selectedItem = selectedSweetFlavors.find((f) => f.name === flavor.name);
+    const qty = selectedItem?.qty || 0;
+    const isSelected = qty > 0;
+
+    return (
+      <div
+        key={flavor.id}
+        className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-2.5 ${
+          isSelected
+            ? 'border-[#2E1609] bg-[#FAF7F3] shadow-xs ring-1 ring-[#2E1609]'
+            : 'border-[#E8D5C4] bg-white hover:border-[#D5BFA8]'
+        }`}
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-bold text-[#2E1609]">{flavor.name}</span>
+              <span className="text-[9px] font-semibold uppercase px-2 py-0.5 rounded-full bg-[#EFE4D8] text-[#6E4F38]">
+                {badgeLabel}
+              </span>
+            </div>
+            {flavor.description && (
+              <p className="text-[11px] text-[#7A5A43] leading-relaxed">
+                {flavor.description}
+              </p>
+            )}
+            {flavor.extraPrice > 0 && (
+              <span className="text-[10px] text-[#C69255] font-semibold block mt-0.5">
+                + {formatCurrency(flavor.extraPrice)} / unidade
+              </span>
+            )}
+          </div>
+
+          {isSelected && (
+            <span className="px-2.5 py-1 rounded-full bg-[#2E1609] text-white text-[11px] font-bold shrink-0 shadow-2xs">
+              {qty} un
+            </span>
+          )}
+        </div>
+
+        {/* Controles de Quantidade: Aumentando e Diminuindo de 5 em 5 */}
+        <div className="pt-2 border-t border-[#F2E8DF] flex items-center justify-between gap-2">
+          {isSelected ? (
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-[#D5BFA8] shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateSweetQty(flavor.name, -5)}
+                  className="w-7 h-7 rounded-lg bg-[#FAF7F3] hover:bg-[#EFE4D8] text-[#2E1609] flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+                  title="Diminuir 5 unidades"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="w-14 text-center font-extrabold text-xs text-[#2E1609] select-none">
+                  {qty} un
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateSweetQty(flavor.name, +5, flavor.extraPrice)}
+                  className="w-7 h-7 rounded-lg bg-[#2E1609] hover:bg-[#1F1108] text-white flex items-center justify-center font-bold text-xs transition-colors cursor-pointer"
+                  title="Aumentar 5 unidades"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateSweetQty(flavor.name, +25, flavor.extraPrice)}
+                  className="px-2.5 py-1 rounded-lg bg-[#FAF7F3] hover:bg-[#EFE4D8] border border-[#D5BFA8] text-[10px] font-bold text-[#6E4F38] transition-colors"
+                  title="Adicionar +25 unidades deste sabor"
+                >
+                  +25 un
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSweetFlavor(flavor.name)}
+                  className="w-7 h-7 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 flex items-center justify-center transition-colors"
+                  title="Remover sabor"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between w-full gap-2">
+              <button
+                type="button"
+                onClick={() => handleUpdateSweetQty(flavor.name, +5, flavor.extraPrice)}
+                className="flex-1 py-1.5 px-3 rounded-xl bg-[#FAF7F3] hover:bg-[#2E1609] hover:text-white border border-[#D5BFA8] text-[11px] font-bold text-[#2E1609] transition-all flex items-center justify-center gap-1.5 cursor-pointer group/btn"
+              >
+                <Plus className="w-3.5 h-3.5 text-[#C69255] group-hover/btn:text-white" />
+                <span>+ 5 unidades</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUpdateSweetQty(flavor.name, +25, flavor.extraPrice)}
+                className="py-1.5 px-2.5 rounded-xl bg-white hover:bg-[#FAF7F3] border border-[#E8D5C4] text-[10px] font-semibold text-[#7A5A43] transition-colors"
+                title="Adicionar lote de 25"
+              >
+                + 25 un
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1F1108]/60 backdrop-blur-xs">
-      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col border border-[#E8D5C4]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#1F1108]/65 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col border border-[#E8D5C4]">
         {/* Header */}
-        <div className="p-6 bg-[#3D1F0D] text-[#FAF7F3] flex items-center justify-between shrink-0">
+        <div className="p-5 sm:p-6 bg-[#2E1609] text-[#FAF7F3] flex items-center justify-between shrink-0">
           <div>
-            <span className="text-[11px] font-medium tracking-widest uppercase text-[#C69255] block">
-              {isSweetOrder ? 'Montador de Doces de Festa' : 'Personalização de Bolo'}
+            <span className="text-[10px] sm:text-[11px] font-semibold tracking-widest uppercase text-[#C69255] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
+              {isSweetOrder ? 'Montador Flexível de Doces de Festa' : 'Personalização de Bolo Artesanal'}
             </span>
             <h2 className="font-serif text-xl sm:text-2xl font-bold mt-0.5 text-white">
               {customizingProduct.name}
@@ -202,179 +370,237 @@ export default function CustomOrderModal() {
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto space-y-7 flex-1">
+        <div className="p-5 sm:p-6 overflow-y-auto space-y-7 flex-1">
           {/* SE FOR PEDIDO DE DOCES DE FESTA */}
           {isSweetOrder ? (
             <>
-              {/* Passo 1: Quantidade de Doces */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
+              {/* Passo 1: Quantidade Total da Encomenda (Pode escolher mais de 100) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-sm font-bold text-[#2E1609] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#2E1609] text-xs font-bold flex items-center justify-center">
                       1
                     </span>
-                    Quantidade do Pacote
+                    Quantidade Total da Encomenda
                   </h3>
-                  <span className="text-xs text-[#7A5A43] font-medium">Obrigatório</span>
+                  <span className="text-xs text-[#7A5A43] font-medium">
+                    Preço: <strong>{formatCurrency(unitSweetPrice)}/unidade</strong>
+                  </span>
                 </div>
-                <div className="grid grid-cols-3 gap-2.5">
-                  {['25 unidades', '50 unidades (Meio Cento)', '100 unidades (Cento)'].map((size) => {
-                    const isSelected = sweetPackageSize === size;
+
+                {/* Pílulas de Seleção Rápida */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: '50 un (Meio Cento)', value: 50 },
+                    { label: '100 un (1 Cento)', value: 100 },
+                    { label: '150 un (1,5 Cento)', value: 150 },
+                    { label: '200 un (2 Centos)', value: 200 },
+                    { label: '250 un', value: 250 },
+                    { label: '300 un (3 Centos)', value: 300 },
+                  ].map((preset) => {
+                    const isSelected = targetSweetUnits === preset.value;
                     return (
-                      <div
-                        key={size}
-                        onClick={() => {
-                          setSweetPackageSize(size);
-                          setSelectedSweetFlavors([]);
-                        }}
-                        className={`p-3 rounded-xl border text-center cursor-pointer transition-all ${
+                      <button
+                        key={preset.value}
+                        type="button"
+                        onClick={() => setTargetSweetUnits(preset.value)}
+                        className={`px-3.5 py-2 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
                           isSelected
-                            ? 'border-[#3D1F0D] bg-[#F7F2EC] shadow-2xs font-bold'
-                            : 'border-[#E8D5C4] hover:border-[#C69255] text-[#5A3821]'
+                            ? 'border-[#2E1609] bg-[#2E1609] text-white shadow-xs'
+                            : 'border-[#E8D5C4] bg-white hover:border-[#C69255] text-[#5A3821]'
                         }`}
                       >
-                        <span className="text-xs">{size}</span>
-                      </div>
+                        {preset.label}
+                      </button>
                     );
                   })}
                 </div>
+
+                {/* Stepper Interativo de Quantidade Personalizada (Mais de 100 unidades) */}
+                <div className="p-4 rounded-2xl bg-[#FAF7F3] border border-[#E8D5C4] flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-[#2E1609] block">
+                      Ajuste fino de quantidade (de 5 em 5):
+                    </span>
+                    <span className="text-[11px] text-[#7A5A43]">
+                      Escolha qualquer quantidade acima de 25 doces (100, 105, 120, 150, 200...).
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setTargetSweetUnits((prev) => Math.max(25, prev - 25))}
+                      disabled={targetSweetUnits <= 25}
+                      className="px-2.5 py-1.5 rounded-lg bg-white border border-[#D5BFA8] text-xs font-semibold text-[#2E1609] hover:bg-[#F2E8DF] disabled:opacity-40 transition-colors"
+                      title="Diminuir 25 unidades"
+                    >
+                      - 25
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTargetSweetUnits((prev) => Math.max(25, prev - 5))}
+                      disabled={targetSweetUnits <= 25}
+                      className="w-8 h-8 rounded-lg bg-white border border-[#D5BFA8] text-[#2E1609] hover:bg-[#F2E8DF] flex items-center justify-center font-bold text-xs disabled:opacity-40 transition-colors"
+                      title="Diminuir 5 unidades"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+
+                    <div className="px-4 py-1.5 rounded-lg bg-white border-2 border-[#2E1609] text-center min-w-[110px]">
+                      <span className="text-lg font-extrabold text-[#2E1609] font-sans">
+                        {targetSweetUnits}
+                      </span>
+                      <span className="text-[10px] text-[#7A5A43] block -mt-1 font-semibold">
+                        doces ({formatCurrency(targetSweetUnits * unitSweetPrice)})
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setTargetSweetUnits((prev) => prev + 5)}
+                      className="w-8 h-8 rounded-lg bg-[#2E1609] hover:bg-[#1A0B03] text-white flex items-center justify-center font-bold text-xs transition-colors"
+                      title="Aumentar 5 unidades"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTargetSweetUnits((prev) => prev + 25)}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#2E1609] hover:bg-[#1A0B03] text-white text-xs font-semibold transition-colors"
+                      title="Aumentar 25 unidades"
+                    >
+                      + 25
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Passo 2: Escolha de Sabores (Tradicionais e Gourmet) */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
+              {/* Passo 2: Escolha de Sabores (Aumentando de 5 em 5 doces) */}
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="font-serif text-sm font-bold text-[#2E1609] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#2E1609] text-xs font-bold flex items-center justify-center">
                       2
                     </span>
-                    Escolha os Sabores (25 unidades por sabor)
+                    Escolha as Quantidades de Cada Sabor (de 5 em 5 doces)
                   </h3>
-                  <span className="text-xs font-semibold text-[#3D1F0D] bg-[#EFE4D8] px-2.5 py-1 rounded-md">
-                    {currentTotalSweetUnits} / {targetSweetUnits} unidades
-                  </span>
-                </div>
 
-                {/* Subseção: Doces Gourmet */}
-                <div className="space-y-2 mb-5">
-                  <span className="text-[11px] font-bold text-[#7A5A43] uppercase tracking-wider block">
-                    Linha Gourmet Especial
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {gourmetSweets.map((flavor) => {
-                      const isSelected = selectedSweetFlavors.some((f) => f.name === flavor.name);
-                      return (
-                        <div
-                          key={flavor.id}
-                          onClick={() => handleToggleSweetFlavor(flavor.name, flavor.extraPrice)}
-                          className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                            isSelected
-                              ? 'border-[#3D1F0D] bg-[#F7F2EC] shadow-2xs'
-                              : 'border-[#E8D5C4] hover:border-[#C69255]'
-                          }`}
-                        >
-                          <div>
-                            <div className="text-xs font-semibold text-[#3D1F0D]">{flavor.name}</div>
-                            {flavor.extraPrice > 0 && (
-                              <span className="text-[10px] text-[#C69255] font-semibold">
-                                + {formatCurrency(flavor.extraPrice)} no lote
-                              </span>
-                            )}
-                          </div>
-                          <div
-                            className={`w-5 h-5 rounded-md border flex items-center justify-center ${
-                              isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-3.5 h-3.5" />}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div
+                    className={`text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1.5 transition-all ${
+                      currentTotalSweetUnits === targetSweetUnits
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : currentTotalSweetUnits > targetSweetUnits
+                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                        : 'bg-amber-100 text-amber-900 border border-amber-300'
+                    }`}
+                  >
+                    {currentTotalSweetUnits === targetSweetUnits ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{currentTotalSweetUnits} de {targetSweetUnits} doces completos!</span>
+                      </>
+                    ) : (
+                      <span>
+                        Distribuídos: {currentTotalSweetUnits} / {targetSweetUnits} doces{' '}
+                        {targetSweetUnits - currentTotalSweetUnits > 0
+                          ? `(faltam ${targetSweetUnits - currentTotalSweetUnits})`
+                          : `(+${currentTotalSweetUnits - targetSweetUnits})`}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {/* Subseção: Doces Tradicionais */}
-                <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-[#7A5A43] uppercase tracking-wider block">
-                    Linha Tradicional de Festa
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {traditionalSweets.map((flavor) => {
-                      const isSelected = selectedSweetFlavors.some((f) => f.name === flavor.name);
-                      return (
-                        <div
-                          key={flavor.id}
-                          onClick={() => handleToggleSweetFlavor(flavor.name, flavor.extraPrice)}
-                          className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                            isSelected
-                              ? 'border-[#3D1F0D] bg-[#F7F2EC] shadow-2xs'
-                              : 'border-[#E8D5C4] hover:border-[#C69255]'
-                          }`}
-                        >
-                          <div>
-                            <div className="text-xs font-semibold text-[#3D1F0D]">{flavor.name}</div>
-                            {flavor.description && (
-                              <div className="text-[10px] text-[#7A5A43]">{flavor.description}</div>
-                            )}
-                          </div>
-                          <div
-                            className={`w-5 h-5 rounded-md border flex items-center justify-center ${
-                              isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-3.5 h-3.5" />}
-                          </div>
-                        </div>
-                      );
-                    })}
+                {/* Barra Visual de Progresso */}
+                <div className="space-y-1">
+                  <div className="w-full bg-stone-200 h-2.5 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        currentTotalSweetUnits === targetSweetUnits
+                          ? 'bg-emerald-600'
+                          : currentTotalSweetUnits > targetSweetUnits
+                          ? 'bg-blue-600'
+                          : 'bg-[#C69255]'
+                      }`}
+                      style={{
+                        width: `${Math.min(100, (currentTotalSweetUnits / targetSweetUnits) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[11px] text-[#7A5A43]">
+                    <span>0 doces</span>
+                    <span>Meta: {targetSweetUnits} doces</span>
                   </div>
                 </div>
 
-                {/* Subseção: Doces Finos */}
-                {fineSweets.length > 0 && (
-                  <div className="space-y-2 mt-5">
-                    <span className="text-[11px] font-bold text-[#7A5A43] uppercase tracking-wider block">
-                      Linha de Doces Finos
+                {/* Abas de Filtro de Sabores */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[
+                    { id: 'all', label: `Todos os Sabores (${gourmetSweets.length + traditionalSweets.length + fineSweets.length})` },
+                    { id: 'gourmet', label: `Linha Gourmet (${gourmetSweets.length})` },
+                    { id: 'traditional', label: `Linha Tradicional (${traditionalSweets.length})` },
+                    { id: 'fine', label: `Doces Finos (${fineSweets.length})` },
+                  ].map((tab) => {
+                    const isActive = activeSweetTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveSweetTab(tab.id as any)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+                          isActive
+                            ? 'bg-[#2E1609] text-white shadow-2xs'
+                            : 'bg-white hover:bg-[#FAF7F3] text-[#7A5A43] border border-[#E8D5C4]'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Lista de Sabores Gourmet */}
+                {(activeSweetTab === 'all' || activeSweetTab === 'gourmet') && (
+                  <div className="space-y-2.5">
+                    <span className="text-[11px] font-bold text-[#C69255] uppercase tracking-wider block">
+                      Linha Gourmet de Festa (Ninho c/ Nutella, Creme Brûlée, Ferrero, etc.)
                     </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {fineSweets.map((flavor) => {
-                        const isSelected = selectedSweetFlavors.some((f) => f.name === flavor.name);
-                        return (
-                          <div
-                            key={flavor.id}
-                            onClick={() => handleToggleSweetFlavor(flavor.name, flavor.extraPrice)}
-                            className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                              isSelected
-                                ? 'border-[#3D1F0D] bg-[#F7F2EC] shadow-2xs'
-                                : 'border-[#E8D5C4] hover:border-[#C69255]'
-                            }`}
-                          >
-                            <div>
-                              <div className="text-xs font-semibold text-[#3D1F0D]">{flavor.name}</div>
-                              {flavor.description && (
-                                <div className="text-[10px] text-[#7A5A43]">{flavor.description}</div>
-                              )}
-                            </div>
-                            <div
-                              className={`w-5 h-5 rounded-md border flex items-center justify-center ${
-                                isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
-                              }`}
-                            >
-                              {isSelected && <Check className="w-3.5 h-3.5" />}
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {gourmetSweets.map((flavor) => renderSweetFlavorCard(flavor, 'Gourmet'))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de Sabores Tradicionais */}
+                {(activeSweetTab === 'all' || activeSweetTab === 'traditional') && (
+                  <div className="space-y-2.5">
+                    <span className="text-[11px] font-bold text-[#7A5A43] uppercase tracking-wider block">
+                      Linha Tradicional de Festa (Brigadeiro, Beijinho, Dois Amores, Bicho de Pé...)
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {traditionalSweets.map((flavor) => renderSweetFlavorCard(flavor, 'Tradicional'))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de Doces Finos */}
+                {(activeSweetTab === 'all' || activeSweetTab === 'fine') && fineSweets.length > 0 && (
+                  <div className="space-y-2.5">
+                    <span className="text-[11px] font-bold text-[#7A5A43] uppercase tracking-wider block">
+                      Linha de Doces Finos Nobres
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {fineSweets.map((flavor) => renderSweetFlavorCard(flavor, 'Doce Fino'))}
                     </div>
                   </div>
                 )}
               </div>
 
               {/* Passo 3: Forminhas */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-serif text-sm font-bold text-[#2E1609] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#2E1609] text-xs font-bold flex items-center justify-center">
                       3
                     </span>
                     Forminhas e Acabamento
@@ -389,20 +615,20 @@ export default function CustomOrderModal() {
                         onClick={() => setSelectedWrapperId(wrap.id)}
                         className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                           isSelected
-                            ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                            ? 'border-[#2E1609] bg-[#FAF7F3] shadow-2xs font-semibold'
                             : 'border-[#E8D5C4] hover:border-[#C69255]'
                         }`}
                       >
-                        <div className="text-xs font-medium text-[#3D1F0D]">{wrap.name}</div>
+                        <div className="text-xs text-[#2E1609]">{wrap.name}</div>
                         <div className="flex items-center gap-2">
                           {wrap.extraPrice > 0 && (
                             <span className="text-xs font-semibold text-[#C69255]">
-                              + {formatCurrency(wrap.extraPrice)}
+                              + {formatCurrency(wrap.extraPrice)} / cento
                             </span>
                           )}
                           <div
                             className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                              isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
+                              isSelected ? 'border-[#2E1609] bg-[#2E1609] text-white' : 'border-[#D5BFA8]'
                             }`}
                           >
                             {isSelected && <Check className="w-3 h-3" />}
@@ -416,15 +642,15 @@ export default function CustomOrderModal() {
 
               {/* Passo 4: Observações */}
               <div>
-                <label className="block text-xs font-semibold text-[#3D1F0D] mb-1">
-                  Observações para a encomenda (ex: cores de confeitos, tema da festa...)
+                <label className="block text-xs font-semibold text-[#2E1609] mb-1">
+                  Observações para a encomenda (ex: cores de confeitos, tema da festa, data especial...)
                 </label>
                 <textarea
                   rows={2}
                   placeholder="Alguma preferência especial?"
                   value={sweetNotes}
                   onChange={(e) => setSweetNotes(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#3D1F0D]"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#D5BFA8] text-xs focus:outline-hidden focus:border-[#2E1609]"
                 />
               </div>
             </>
@@ -434,8 +660,8 @@ export default function CustomOrderModal() {
               {/* Passo 1: Tamanho do Bolo */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
+                  <h3 className="font-serif text-sm font-bold text-[#2E1609] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#2E1609] text-xs font-bold flex items-center justify-center">
                       1
                     </span>
                     Tamanho do Bolo
@@ -449,24 +675,21 @@ export default function CustomOrderModal() {
                       <div
                         key={size.id}
                         onClick={() => setSelectedSizeId(size.id)}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                        className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                           isSelected
-                            ? 'border-[#3D1F0D] bg-[#F7F2EC] shadow-xs'
-                            : 'border-[#E8D5C4] hover:border-[#C69255] bg-white'
+                            ? 'border-[#2E1609] bg-[#FAF7F3] shadow-xs'
+                            : 'border-[#E8D5C4] hover:border-[#C69255]'
                         }`}
                       >
-                        <div className="flex items-start justify-between">
-                          <span className="text-xs font-bold text-[#3D1F0D]">{size.name}</span>
-                          {isSelected && <Check className="w-4 h-4 text-[#3D1F0D] shrink-0" />}
-                        </div>
+                        <div className="font-bold text-xs text-[#2E1609]">{size.name}</div>
                         {size.description && (
-                          <p className="mt-1 text-[11px] text-[#7A5A43] leading-tight">
-                            {size.description}
-                          </p>
+                          <div className="text-[11px] text-[#7A5A43] mt-0.5">{size.description}</div>
                         )}
-                        <span className="mt-2 block text-xs font-semibold text-[#C69255]">
-                          {size.extraPrice > 0 ? `+ ${formatCurrency(size.extraPrice)}` : 'Incluso'}
-                        </span>
+                        {size.extraPrice > 0 && (
+                          <div className="text-xs font-bold text-[#C69255] mt-1">
+                            + {formatCurrency(size.extraPrice)}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -476,46 +699,34 @@ export default function CustomOrderModal() {
               {/* Passo 2: Massa */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
+                  <h3 className="font-serif text-sm font-bold text-[#2E1609] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#2E1609] text-xs font-bold flex items-center justify-center">
                       2
                     </span>
-                    Massa
+                    Massa do Bolo
                   </h3>
                   <span className="text-xs text-[#7A5A43] font-medium">Obrigatório</span>
                 </div>
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {doughs.map((dough) => {
                     const isSelected = selectedDoughId === dough.id;
                     return (
                       <div
                         key={dough.id}
                         onClick={() => setSelectedDoughId(dough.id)}
-                        className={`p-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                        className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                           isSelected
-                            ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                            ? 'border-[#2E1609] bg-[#FAF7F3]'
                             : 'border-[#E8D5C4] hover:border-[#C69255]'
                         }`}
                       >
-                        <div>
-                          <div className="text-xs sm:text-sm font-semibold text-[#3D1F0D]">{dough.name}</div>
-                          {dough.description && (
-                            <div className="text-[11px] text-[#7A5A43]">{dough.description}</div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {dough.extraPrice > 0 && (
-                            <span className="text-xs font-semibold text-[#C69255]">
-                              + {formatCurrency(dough.extraPrice)}
-                            </span>
-                          )}
-                          <div
-                            className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                              isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-3 h-3" />}
-                          </div>
+                        <div className="text-xs font-medium text-[#2E1609]">{dough.name}</div>
+                        <div
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'border-[#2E1609] bg-[#2E1609] text-white' : 'border-[#D5BFA8]'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3 h-3" />}
                         </div>
                       </div>
                     );
@@ -523,43 +734,43 @@ export default function CustomOrderModal() {
                 </div>
               </div>
 
-              {/* Passo 3: Recheios */}
+              {/* Passo 3: Recheios (Até 2) */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
+                  <h3 className="font-serif text-sm font-bold text-[#2E1609] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#2E1609] text-xs font-bold flex items-center justify-center">
                       3
                     </span>
-                    Recheios (Até 2 opções)
+                    Recheios Artesanais (Escolha até 2)
                   </h3>
-                  <span className="text-xs font-semibold text-[#3D1F0D] bg-[#EFE4D8] px-2 py-0.5 rounded-md">
+                  <span className="text-xs font-semibold text-[#2E1609] bg-[#EFE4D8] px-2.5 py-1 rounded-md">
                     {selectedFillingIds.length}/2 selecionados
                   </span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {fillings.map((filling) => {
-                    const isSelected = selectedFillingIds.includes(filling.id);
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {fillings.map((fill) => {
+                    const isSelected = selectedFillingIds.includes(fill.id);
                     return (
                       <div
-                        key={filling.id}
-                        onClick={() => toggleFilling(filling.id)}
+                        key={fill.id}
+                        onClick={() => toggleFilling(fill.id)}
                         className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                           isSelected
-                            ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                            ? 'border-[#2E1609] bg-[#FAF7F3]'
                             : 'border-[#E8D5C4] hover:border-[#C69255]'
                         }`}
                       >
                         <div>
-                          <div className="text-xs font-semibold text-[#3D1F0D]">{filling.name}</div>
-                          {filling.extraPrice > 0 && (
-                            <span className="text-[11px] font-medium text-[#C69255]">
-                              + {formatCurrency(filling.extraPrice)}
+                          <div className="text-xs font-medium text-[#2E1609]">{fill.name}</div>
+                          {fill.extraPrice > 0 && (
+                            <span className="text-[10px] text-[#C69255] font-semibold">
+                              + {formatCurrency(fill.extraPrice)}
                             </span>
                           )}
                         </div>
                         <div
                           className={`w-5 h-5 rounded-md border flex items-center justify-center ${
-                            isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
+                            isSelected ? 'border-[#2E1609] bg-[#2E1609] text-white' : 'border-[#D5BFA8]'
                           }`}
                         >
                           {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -573,13 +784,12 @@ export default function CustomOrderModal() {
               {/* Passo 4: Cobertura */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
+                  <h3 className="font-serif text-sm font-bold text-[#2E1609] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#2E1609] text-xs font-bold flex items-center justify-center">
                       4
                     </span>
-                    Cobertura e Decoração
+                    Finalização / Cobertura
                   </h3>
-                  <span className="text-xs text-[#7A5A43] font-medium">Obrigatório</span>
                 </div>
                 <div className="space-y-2">
                   {toppings.map((top) => {
@@ -590,12 +800,12 @@ export default function CustomOrderModal() {
                         onClick={() => setSelectedToppingId(top.id)}
                         className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                           isSelected
-                            ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                            ? 'border-[#2E1609] bg-[#FAF7F3]'
                             : 'border-[#E8D5C4] hover:border-[#C69255]'
                         }`}
                       >
                         <div>
-                          <div className="text-xs font-semibold text-[#3D1F0D]">{top.name}</div>
+                          <div className="text-xs font-medium text-[#2E1609]">{top.name}</div>
                           {top.description && (
                             <div className="text-[11px] text-[#7A5A43]">{top.description}</div>
                           )}
@@ -608,7 +818,7 @@ export default function CustomOrderModal() {
                           )}
                           <div
                             className={`w-5 h-5 rounded-full border flex items-center justify-center ${
-                              isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
+                              isSelected ? 'border-[#2E1609] bg-[#2E1609] text-white' : 'border-[#D5BFA8]'
                             }`}
                           >
                             {isSelected && <Check className="w-3 h-3" />}
@@ -623,8 +833,8 @@ export default function CustomOrderModal() {
               {/* Passo 5: Topo e Mensagem */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-serif text-sm font-bold text-[#3D1F0D] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#3D1F0D] text-xs font-bold flex items-center justify-center">
+                  <h3 className="font-serif text-sm font-bold text-[#2E1609] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#EFE4D8] text-[#2E1609] text-xs font-bold flex items-center justify-center">
                       5
                     </span>
                     Adicionais (Opcional)
@@ -639,18 +849,18 @@ export default function CustomOrderModal() {
                         onClick={() => toggleCakeExtra(extra.id)}
                         className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                           isSelected
-                            ? 'border-[#3D1F0D] bg-[#F7F2EC]'
+                            ? 'border-[#2E1609] bg-[#FAF7F3]'
                             : 'border-[#E8D5C4] hover:border-[#C69255]'
                         }`}
                       >
-                        <div className="text-xs font-medium text-[#3D1F0D]">{extra.name}</div>
+                        <div className="text-xs font-medium text-[#2E1609]">{extra.name}</div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-semibold text-[#C69255]">
                             + {formatCurrency(extra.extraPrice)}
                           </span>
                           <div
                             className={`w-5 h-5 rounded-md border flex items-center justify-center ${
-                              isSelected ? 'border-[#3D1F0D] bg-[#3D1F0D] text-white' : 'border-[#D5BFA8]'
+                              isSelected ? 'border-[#2E1609] bg-[#2E1609] text-white' : 'border-[#D5BFA8]'
                             }`}
                           >
                             {isSelected && <Check className="w-3.5 h-3.5" />}
@@ -661,7 +871,7 @@ export default function CustomOrderModal() {
                   })}
                 </div>
 
-                <label className="block text-xs font-semibold text-[#3D1F0D] mb-1">
+                <label className="block text-xs font-semibold text-[#2E1609] mb-1">
                   Nome ou frase para o topo / escrita no bolo
                 </label>
                 <input
@@ -669,25 +879,29 @@ export default function CustomOrderModal() {
                   placeholder="Ex: Parabéns Helena"
                   value={cakeMessage}
                   onChange={(e) => setCakeMessage(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#D5BFA8] text-xs sm:text-sm focus:outline-hidden focus:border-[#3D1F0D]"
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#D5BFA8] text-xs sm:text-sm focus:outline-hidden focus:border-[#2E1609]"
                 />
               </div>
             </>
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer Fixo */}
         <div className="p-5 bg-[#FAF7F3] border-t border-[#E8D5C4] flex items-center justify-between shrink-0">
           <div>
-            <span className="text-[11px] text-[#7A5A43] block">Valor Total</span>
-            <span className="text-xl sm:text-2xl font-bold text-[#3D1F0D] font-sans">
+            <span className="text-[11px] text-[#7A5A43] block">
+              {isSweetOrder
+                ? `Total da Encomenda (${effectiveSweetUnits} doces • ${formatCurrency(unitSweetPrice)}/un)`
+                : 'Valor Total'}
+            </span>
+            <span className="text-xl sm:text-2xl font-bold text-[#2E1609] font-sans">
               {formatCurrency(finalPrice)}
             </span>
           </div>
 
           <button
             onClick={handleConfirm}
-            className="px-6 py-3 rounded-xl bg-[#3D1F0D] hover:bg-[#2C1407] text-[#FAF7F3] font-medium text-xs sm:text-sm flex items-center gap-2 shadow-sm active:scale-95 transition-all"
+            className="px-6 py-3 rounded-xl bg-[#2E1609] hover:bg-[#1A0B03] text-[#FAF7F3] font-medium text-xs sm:text-sm flex items-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
           >
             <ShoppingBag className="w-4 h-4" />
             <span>Adicionar à Sacola</span>
