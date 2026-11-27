@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   Bike,
   Store,
+  MessageCircle,
 } from 'lucide-react';
 
 export default function CartDrawer() {
@@ -327,8 +328,26 @@ export default function CartDrawer() {
         whatsappUrl: waLink,
       });
 
-      // Abre o WhatsApp em nova aba
-      window.open(waLink, '_blank');
+      // Disparo automático em background para o WhatsApp da Confeitaria (sem abrir tela pro cliente)
+      fetch('/api/whatsapp/send-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: settings.whatsapp,
+          message: msg,
+          orderNumber: createdOrder.orderNumber,
+          customerName: customerName.trim(),
+          status: 'received',
+          customerPhone: customerPhone.trim(),
+          customerMessage: `Olá, *${customerName.trim()}*! Recebemos sua encomenda *${createdOrder.orderNumber}* no ateliê da *${settings.storeName}*.\n\n` +
+            `*Valor:* ${formatCurrency(amountToPayNow)}${isHalfDeposit ? ' (Sinal de 50%)' : ''}\n` +
+            (paymentMethod === 'pix' && pixPayload ? `*Pix Copia e Cola:* \n${pixPayload}\n\n` : '') +
+            `Em breve entraremos em contato para confirmar todos os detalhes! ❤️`,
+        }),
+      }).catch((err) => {
+        console.warn('[WhatsApp Automático] Aviso ao disparar notificação em background:', err);
+      });
+
       clearCart();
     } finally {
       setIsSubmitting(false);
@@ -508,26 +527,38 @@ export default function CartDrawer() {
             )}
 
             {/* Ações Finais */}
-            <div className="w-full flex flex-col gap-2 pt-2">
-              <a
-                href={completedOrder.whatsappUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-3 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
-              >
-                <Send className="w-4 h-4" />
-                <span>Reabrir Conversa no WhatsApp</span>
-              </a>
+            <div className="w-full flex flex-col gap-2.5 pt-2">
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
+                <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-emerald-900">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Pedido Enviado com Sucesso!</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 leading-relaxed">
+                  O ateliê recebeu os dados da sua encomenda automaticamente. Após o pagamento via Pix acima, sua reserva estará confirmada.
+                </p>
+              </div>
 
               <button
+                type="button"
                 onClick={() => {
                   setIsCartOpen(false);
                   setCompletedOrder(null);
                 }}
-                className="w-full py-2.5 rounded-xl border border-[#D5BFA8] text-xs font-semibold text-[#7A5A43] hover:bg-[#FAF7F3] transition-colors"
+                className="w-full py-3.5 rounded-xl bg-[#2E1609] hover:bg-[#1F1108] text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
               >
-                Fechar Sacola
+                <Check className="w-4 h-4" />
+                <span>Concluir e Fechar Sacola</span>
               </button>
+
+              <a
+                href={completedOrder.whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-[#7A5A43] hover:text-[#2E1609] hover:underline flex items-center justify-center gap-1.5 py-1 transition-colors"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-[#C69255]" />
+                <span>Dúvidas? Falar com nosso atendimento pelo WhatsApp</span>
+              </a>
             </div>
           </div>
         ) : cart.length === 0 ? (
